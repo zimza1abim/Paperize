@@ -6,11 +6,12 @@ import androidx.core.net.toUri
 import com.anthonyla.paperize.R
 import com.anthonyla.paperize.core.Result
 import com.anthonyla.paperize.core.ScreenType
-import com.anthonyla.paperize.core.util.adaptiveBrightnessAdjustment
+import com.anthonyla.paperize.core.WallpaperMediaType
 import com.anthonyla.paperize.core.util.getWallpaperRenderSize
 import com.anthonyla.paperize.core.util.isValid
 import com.anthonyla.paperize.core.util.processBitmap
 import com.anthonyla.paperize.core.util.retrieveBitmap
+import com.anthonyla.paperize.core.util.retrieveVideoFrameBitmap
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.repository.WallpaperRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -54,30 +55,41 @@ class ReapplyEffectsUseCase @Inject constructor(
                 return Result.Error(Exception(context.getString(R.string.error_no_valid_wallpaper_after_retries)))
             }
 
-            val bitmap = retrieveBitmap(context, uri, screenSize.width, screenSize.height, scaling)
+            val bitmap = when (current.mediaType) {
+                WallpaperMediaType.VIDEO -> retrieveVideoFrameBitmap(
+                    context,
+                    uri,
+                    screenSize.width,
+                    screenSize.height,
+                    scaling,
+                    current.framing
+                )
+                WallpaperMediaType.IMAGE -> retrieveBitmap(
+                    context,
+                    uri,
+                    screenSize.width,
+                    screenSize.height,
+                    scaling,
+                    current.framing
+                )
+            }
                 ?: return Result.Error(Exception(context.getString(R.string.error_no_valid_wallpaper_after_retries)))
 
             var processed: Bitmap? = null
             try {
                 processed = processBitmap(
                     source = bitmap,
-                    enableDarken = effects.enableDarken,
-                    darkenPercent = effects.darkenPercentage,
-                    enableBlur = effects.enableBlur,
-                    blurPercent = effects.blurPercentage,
-                    enableVignette = effects.enableVignette,
-                    vignettePercent = effects.vignettePercentage,
-                    enableGrayscale = effects.enableGrayscale,
-                    grayscalePercent = effects.grayscalePercentage
+                    enableDarken = false,
+                    darkenPercent = 0,
+                    enableBlur = false,
+                    blurPercent = 0,
+                    enableVignette = false,
+                    vignettePercent = 0,
+                    enableGrayscale = false,
+                    grayscalePercent = 0
                 )
 
                 if (processed !== bitmap) bitmap.recycle()
-
-                if (settings.adaptiveBrightness) {
-                    val prev = processed
-                    processed = adaptiveBrightnessAdjustment(context, processed)
-                    if (processed !== prev) prev.recycle()
-                }
 
                 Result.Success(processed)
             } catch (e: Exception) {

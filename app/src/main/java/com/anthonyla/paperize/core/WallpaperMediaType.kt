@@ -4,16 +4,20 @@ package com.anthonyla.paperize.core
  * Media type for wallpapers
  *
  * Determines what type of media the wallpaper file is, which affects
- * how it's rendered in live wallpaper mode.
- *
- * Note: Currently only IMAGE type is supported.
+ * how it's decoded before being applied as wallpaper.
  */
 enum class WallpaperMediaType {
     /**
      * Image files: JPEG, PNG, WEBP, AVIF, HEIC, HEIF, BMP, GIF, TIFF
      * Supported in both static and live wallpaper modes
      */
-    IMAGE;
+    IMAGE,
+
+    /**
+     * Video files. Static wallpaper mode uses a representative frame.
+     * Full-motion live wallpaper playback is not implemented yet.
+     */
+    VIDEO;
 
     /**
      * Supported file extensions for this media type
@@ -28,19 +32,22 @@ enum class WallpaperMediaType {
                 "tiff", "tif",  // TIFF - high quality archival format
                 "svg"           // SVG - vector graphics (rasterized for wallpaper)
             )
+            VIDEO -> setOf(
+                "mp4", "m4v", "3gp", "webm", "mkv"
+            )
         }
 
     /**
      * Whether this media type is supported in static wallpaper mode
      */
     val supportedInStaticMode: Boolean
-        get() = this == IMAGE
+        get() = this == IMAGE || this == VIDEO
 
     /**
      * Whether this media type is supported in live wallpaper mode
      */
     val supportedInLiveMode: Boolean
-        get() = true  // All types supported in live mode
+        get() = this == IMAGE || this == VIDEO
 
     companion object {
         /**

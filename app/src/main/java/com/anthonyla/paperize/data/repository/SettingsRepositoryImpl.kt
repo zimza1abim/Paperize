@@ -4,6 +4,7 @@ import com.anthonyla.paperize.core.WallpaperMode
 import com.anthonyla.paperize.data.datastore.PreferencesManager
 import com.anthonyla.paperize.domain.model.AppSettings
 import com.anthonyla.paperize.domain.model.ScheduleSettings
+import com.anthonyla.paperize.domain.model.WallpaperProfileSnapshot
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -44,6 +45,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateScheduleSettings(settings: ScheduleSettings) =
         preferencesManager.updateScheduleSettings(settings)
 
+    override suspend fun getWallpaperProfile(profileId: Int): WallpaperProfileSnapshot? =
+        preferencesManager.getWallpaperProfile(profileId)
+
+    override suspend fun saveWallpaperProfile(profile: WallpaperProfileSnapshot) =
+        preferencesManager.saveWallpaperProfile(profile)
+
     override suspend fun clearAllSettings() =
         preferencesManager.clear()
 
@@ -81,3 +88,4 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateEnableChanger(enabled: Boolean) =
         preferencesManager.updateEnableChanger(enabled)
 }
+

@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoAlbum
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,6 +46,7 @@ import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.size.Size
+import com.anthonyla.paperize.R
 import com.anthonyla.paperize.domain.model.AlbumSummary
 import com.anthonyla.paperize.presentation.common.components.InteractiveCard
 import com.anthonyla.paperize.presentation.theme.AppSpacing
@@ -53,6 +58,7 @@ import com.anthonyla.paperize.presentation.theme.AppSpacing
 fun AlbumItem(
     album: AlbumSummary,
     onAlbumViewClick: () -> Unit,
+    onRenameClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -113,13 +119,35 @@ fun AlbumItem(
             Spacer(modifier = Modifier.height(AppSpacing.medium))
 
             // Album name with enhanced typography
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = album.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onRenameClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Rename album"
+                    )
+                }
+            }
+
             Text(
-                text = album.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
+                text = "${pluralStringResource(R.plurals.wallpaper_count, album.wallpaperCount, album.wallpaperCount)} · ${
+                    pluralStringResource(R.plurals.folder_count, album.folderCount, album.folderCount)
+                }",
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -137,3 +165,4 @@ private fun isValidUri(context: Context, uriString: String?): Boolean {
         false
     }
 }
+

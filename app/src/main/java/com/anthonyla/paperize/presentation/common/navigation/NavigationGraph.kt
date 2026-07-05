@@ -173,9 +173,6 @@ fun NavigationGraph(
                 },
                 onNavigateToWallpaperView = { wallpaperUri, wallpaperName ->
                     navController.navigate(WallpaperViewRoute(wallpaperUri, wallpaperName))
-                },
-                onNavigateToSort = {
-                    navController.navigate(SortRoute(route.albumId))
                 }
             )
         }

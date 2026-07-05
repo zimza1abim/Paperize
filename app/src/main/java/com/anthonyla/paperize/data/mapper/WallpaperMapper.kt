@@ -2,6 +2,7 @@ package com.anthonyla.paperize.data.mapper
 
 import com.anthonyla.paperize.data.database.entities.WallpaperEntity
 import com.anthonyla.paperize.domain.model.Wallpaper
+import com.anthonyla.paperize.domain.model.WallpaperFraming
 
 /**
  * Mappers for Wallpaper entity <-> domain model conversion
@@ -17,7 +18,12 @@ fun WallpaperEntity.toDomainModel(): Wallpaper = Wallpaper(
     displayOrder = displayOrder,
     sourceType = sourceType,
     addedAt = addedAt,
-    mediaType = mediaType
+    mediaType = mediaType,
+    framing = WallpaperFraming(
+        scale = framingScale,
+        offsetX = framingOffsetX,
+        offsetY = framingOffsetY
+    ).sanitized()
 )
 
 fun Wallpaper.toEntity(): WallpaperEntity = WallpaperEntity(
@@ -30,7 +36,10 @@ fun Wallpaper.toEntity(): WallpaperEntity = WallpaperEntity(
     displayOrder = displayOrder,
     sourceType = sourceType,
     addedAt = addedAt,
-    mediaType = mediaType
+    mediaType = mediaType,
+    framingScale = framing.sanitized().scale,
+    framingOffsetX = framing.sanitized().offsetX,
+    framingOffsetY = framing.sanitized().offsetY
 )
 
 fun List<WallpaperEntity>.toDomainModels(): List<Wallpaper> = map { it.toDomainModel() }

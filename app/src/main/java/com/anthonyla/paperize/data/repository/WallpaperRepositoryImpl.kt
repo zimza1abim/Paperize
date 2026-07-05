@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.anthonyla.paperize.core.Result
 import com.anthonyla.paperize.core.ScreenType
+import com.anthonyla.paperize.core.WallpaperMediaType
 import com.anthonyla.paperize.core.WallpaperSourceType
 import com.anthonyla.paperize.core.constants.Constants
 import com.anthonyla.paperize.core.util.generateId
@@ -59,6 +60,9 @@ class WallpaperRepositoryImpl @Inject constructor(
 
     override suspend fun getWallpaperById(wallpaperId: String): Wallpaper? =
         wallpaperDao.getWallpaperById(wallpaperId)?.toDomainModel()
+
+    override suspend fun getWallpaperByUri(uri: String): Wallpaper? =
+        wallpaperDao.getWallpaperByUri(uri)?.toDomainModel()
 
     override suspend fun addWallpaper(wallpaper: Wallpaper): Result<Unit> {
         return try {
@@ -158,11 +162,13 @@ class WallpaperRepositoryImpl @Inject constructor(
     override suspend fun buildWallpaperQueue(
         albumId: String,
         screenType: ScreenType,
-        shuffle: Boolean
+        shuffle: Boolean,
+        folderId: String?
     ): Result<Unit> {
         // In shuffle mode, use album-level mutex to ensure synchronized shuffle order
         // In sequential mode, use per-screen mutex for independent rebuilds
-        val mutexKey = if (shuffle) albumId else "$albumId:$screenType"
+        val sourceKey = folderId ?: albumId
+        val mutexKey = if (shuffle) sourceKey else "$sourceKey:$screenType"
         val mutex = queueRebuildMutexes.getOrPut(mutexKey) { Mutex() }
 
         return mutex.withLock {
@@ -176,7 +182,8 @@ class WallpaperRepositoryImpl @Inject constructor(
                 } else null
 
                 val wallpaperIds = if (shuffle) {
-                    val ids = wallpaperDao.getWallpaperIdsByAlbum(albumId)
+                    val ids = folderId?.let { wallpaperDao.getWallpaperIdsByFolder(it) }
+                        ?: wallpaperDao.getWallpaperIdsByAlbum(albumId)
 
                     // In shuffle mode, sync with the other screen's queue if it exists
                     val otherScreenQueueIds = otherScreenType?.let {
@@ -192,7 +199,8 @@ class WallpaperRepositoryImpl @Inject constructor(
                         com.anthonyla.paperize.core.util.QueueBuilder.buildShuffledQueue(ids)
                     }
                 } else {
-                    val idsWithOrder = wallpaperDao.getWallpaperIdsAndOrderByAlbum(albumId)
+                    val idsWithOrder = folderId?.let { wallpaperDao.getWallpaperIdsAndOrderByFolder(it) }
+                        ?: wallpaperDao.getWallpaperIdsAndOrderByAlbum(albumId)
                     com.anthonyla.paperize.core.util.QueueBuilder.buildSequentialQueue(
                         idsWithOrder.map { it.id to it.displayOrder }
                     )
@@ -277,11 +285,14 @@ class WallpaperRepositoryImpl @Inject constructor(
         directory.listFiles().forEach { file ->
             if (file.isDirectory) {
                 scanDirectoryRecursive(file, result)
-            } else if (file.isFile && file.name?.let { name -> isImageFile(name) } == true) {
+            } else if (file.isFile && file.name?.let { name -> isSupportedMediaFile(name) } == true) {
                 try {
                     val uri = file.uri.toString()
                     val fileName = file.name ?: return@forEach
                     val dateModified = file.lastModified()
+                    val mediaType = WallpaperMediaType.fromExtension(
+                        fileName.substringAfterLast('.', "")
+                    ) ?: WallpaperMediaType.IMAGE
 
                     result.add(
                         Wallpaper(
@@ -291,7 +302,8 @@ class WallpaperRepositoryImpl @Inject constructor(
                             uri = uri,
                             fileName = fileName,
                             dateModified = dateModified,
-                            sourceType = WallpaperSourceType.FOLDER
+                            sourceType = WallpaperSourceType.FOLDER,
+                            mediaType = mediaType
                         )
                     )
                 } catch (_: Exception) {
@@ -301,9 +313,9 @@ class WallpaperRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun isImageFile(fileName: String): Boolean {
+    private fun isSupportedMediaFile(fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return extension in Constants.SUPPORTED_IMAGE_EXTENSIONS
+        return extension in Constants.SUPPORTED_MEDIA_EXTENSIONS
     }
 
     override suspend fun isWallpaperInAlbum(albumId: String, uri: String): Boolean =

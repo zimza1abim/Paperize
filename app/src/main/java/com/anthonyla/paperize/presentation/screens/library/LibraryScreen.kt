@@ -17,6 +17,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFloatingActionButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,11 +44,15 @@ fun LibraryScreen(
     albums: List<AlbumSummary>,
     onViewAlbum: (String) -> Unit,
     onCreateAlbum: (String) -> Unit,
+    onRenameAlbum: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val lazyListState = rememberLazyGridState()
     var showAddAlbumDialog by rememberSaveable { mutableStateOf(false) }
     var albumNameError by rememberSaveable { mutableStateOf<String?>(null) }
+    var albumBeingRenamed by rememberSaveable { mutableStateOf<AlbumSummary?>(null) }
+    var renameText by rememberSaveable { mutableStateOf("") }
+    var renameError by rememberSaveable { mutableStateOf<String?>(null) }
     val albumNameExistsError = stringResource(R.string.album_name_exists_error)
 
     Scaffold(
@@ -112,11 +119,56 @@ fun LibraryScreen(
                     AlbumItem(
                         album = album,
                         onAlbumViewClick = { onViewAlbum(album.id) },
+                        onRenameClick = {
+                            albumBeingRenamed = album
+                            renameText = album.name
+                            renameError = null
+                        },
                         modifier = Modifier.padding(AppSpacing.gridPadding)
                     )
                 }
             }
         }
+    }
+
+    albumBeingRenamed?.let { album ->
+        AlertDialog(
+            onDismissRequest = {
+                albumBeingRenamed = null
+                renameError = null
+            },
+            title = { Text("Rename album") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = {
+                        renameText = it
+                        renameError = null
+                    },
+                    singleLine = true,
+                    isError = renameError != null,
+                    supportingText = { renameError?.let { Text(it) } }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val trimmed = renameText.trim()
+                    val duplicate = albums.any { it.id != album.id && it.name.equals(trimmed, ignoreCase = true) }
+                    when {
+                        trimmed.isBlank() -> renameError = "Album name cannot be empty"
+                        duplicate -> renameError = albumNameExistsError
+                        else -> {
+                            onRenameAlbum(album.id, trimmed)
+                            albumBeingRenamed = null
+                            renameError = null
+                        }
+                    }
+                }) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { albumBeingRenamed = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
     }
 
     if (showAddAlbumDialog) {

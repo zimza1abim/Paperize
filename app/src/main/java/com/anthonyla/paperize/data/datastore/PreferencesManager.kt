@@ -16,6 +16,9 @@ import com.anthonyla.paperize.core.constants.PreferenceKeys
 import com.anthonyla.paperize.domain.model.AppSettings
 import com.anthonyla.paperize.domain.model.ScheduleSettings
 import com.anthonyla.paperize.domain.model.WallpaperEffects
+import com.anthonyla.paperize.domain.model.WallpaperProfileSnapshot
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -39,6 +42,7 @@ class PreferencesManager @Inject constructor(
     context: Context
 ) {
     private val dataStore = context.dataStore
+    private val json = Json { ignoreUnknownKeys = true }
 
     // ============ App Settings ============
 
@@ -116,7 +120,10 @@ class PreferencesManager @Inject constructor(
             lockEnabled = prefs[booleanPreferencesKey(PreferenceKeys.LOCK_ENABLED)] ?: false,
             homeAlbumId = prefs[stringPreferencesKey(PreferenceKeys.HOME_ALBUM_ID)],
             lockAlbumId = prefs[stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID)],
+            homeFolderId = prefs[stringPreferencesKey(PreferenceKeys.HOME_FOLDER_ID)],
+            lockFolderId = prefs[stringPreferencesKey(PreferenceKeys.LOCK_FOLDER_ID)],
             liveAlbumId = prefs[stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID)],
+            liveFolderId = prefs[stringPreferencesKey(PreferenceKeys.LIVE_FOLDER_ID)],
             homeIntervalMinutes = prefs[intPreferencesKey(PreferenceKeys.HOME_INTERVAL_MINUTES)]
                 ?: Constants.DEFAULT_INTERVAL_MINUTES,
             lockIntervalMinutes = prefs[intPreferencesKey(PreferenceKeys.LOCK_INTERVAL_MINUTES)]
@@ -163,8 +170,10 @@ class PreferencesManager @Inject constructor(
                 grayscalePercentage = prefs[intPreferencesKey(PreferenceKeys.LIVE_GRAYSCALE)] ?: 0,
                 enableDoubleTap = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_DOUBLE_TAP)] ?: false,
                 enableChangeOnScreenOff = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_OFF)] ?: false,
+                enableChangeOnScreenOn = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_ON)] ?: false,
                 enableParallax = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX)] ?: false,
-                parallaxIntensity = prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] ?: Constants.DEFAULT_PARALLAX_INTENSITY
+                parallaxIntensity = prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] ?: Constants.DEFAULT_PARALLAX_INTENSITY,
+                crossfadeDurationMs = prefs[intPreferencesKey(PreferenceKeys.LIVE_CROSSFADE_DURATION_MS)] ?: Constants.CROSSFADE_DURATION_MS
             ),
             adaptiveBrightness = prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] ?: false
         )
@@ -179,7 +188,10 @@ class PreferencesManager @Inject constructor(
             lockEnabled = prefs[booleanPreferencesKey(PreferenceKeys.LOCK_ENABLED)] ?: false,
             homeAlbumId = prefs[stringPreferencesKey(PreferenceKeys.HOME_ALBUM_ID)],
             lockAlbumId = prefs[stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID)],
+            homeFolderId = prefs[stringPreferencesKey(PreferenceKeys.HOME_FOLDER_ID)],
+            lockFolderId = prefs[stringPreferencesKey(PreferenceKeys.LOCK_FOLDER_ID)],
             liveAlbumId = prefs[stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID)],
+            liveFolderId = prefs[stringPreferencesKey(PreferenceKeys.LIVE_FOLDER_ID)],
             homeIntervalMinutes = prefs[intPreferencesKey(PreferenceKeys.HOME_INTERVAL_MINUTES)]
                 ?: Constants.DEFAULT_INTERVAL_MINUTES,
             lockIntervalMinutes = prefs[intPreferencesKey(PreferenceKeys.LOCK_INTERVAL_MINUTES)]
@@ -226,8 +238,10 @@ class PreferencesManager @Inject constructor(
                 grayscalePercentage = prefs[intPreferencesKey(PreferenceKeys.LIVE_GRAYSCALE)] ?: 0,
                 enableDoubleTap = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_DOUBLE_TAP)] ?: false,
                 enableChangeOnScreenOff = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_OFF)] ?: false,
+                enableChangeOnScreenOn = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_ON)] ?: false,
                 enableParallax = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX)] ?: false,
-                parallaxIntensity = prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] ?: Constants.DEFAULT_PARALLAX_INTENSITY
+                parallaxIntensity = prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] ?: Constants.DEFAULT_PARALLAX_INTENSITY,
+                crossfadeDurationMs = prefs[intPreferencesKey(PreferenceKeys.LIVE_CROSSFADE_DURATION_MS)] ?: Constants.CROSSFADE_DURATION_MS
             ),
             adaptiveBrightness = prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] ?: false
         )
@@ -250,10 +264,25 @@ class PreferencesManager @Inject constructor(
             } else {
                 prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID))
             }
+            if (settings.homeFolderId != null) {
+                prefs[stringPreferencesKey(PreferenceKeys.HOME_FOLDER_ID)] = settings.homeFolderId
+            } else {
+                prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_FOLDER_ID))
+            }
+            if (settings.lockFolderId != null) {
+                prefs[stringPreferencesKey(PreferenceKeys.LOCK_FOLDER_ID)] = settings.lockFolderId
+            } else {
+                prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_FOLDER_ID))
+            }
             if (settings.liveAlbumId != null) {
                 prefs[stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID)] = settings.liveAlbumId
             } else {
                 prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID))
+            }
+            if (settings.liveFolderId != null) {
+                prefs[stringPreferencesKey(PreferenceKeys.LIVE_FOLDER_ID)] = settings.liveFolderId
+            } else {
+                prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_FOLDER_ID))
             }
             prefs[intPreferencesKey(PreferenceKeys.HOME_INTERVAL_MINUTES)] = settings.homeIntervalMinutes
             prefs[intPreferencesKey(PreferenceKeys.LOCK_INTERVAL_MINUTES)] = settings.lockIntervalMinutes
@@ -299,8 +328,10 @@ class PreferencesManager @Inject constructor(
             prefs[intPreferencesKey(PreferenceKeys.LIVE_GRAYSCALE)] = settings.liveEffects.grayscalePercentage
             prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_DOUBLE_TAP)] = settings.liveEffects.enableDoubleTap
             prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_OFF)] = settings.liveEffects.enableChangeOnScreenOff
+            prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_ON)] = settings.liveEffects.enableChangeOnScreenOn
             prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX)] = settings.liveEffects.enableParallax
             prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] = settings.liveEffects.parallaxIntensity
+            prefs[intPreferencesKey(PreferenceKeys.LIVE_CROSSFADE_DURATION_MS)] = settings.liveEffects.crossfadeDurationMs
 
             // Adaptive brightness
             prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] = settings.adaptiveBrightness
@@ -435,6 +466,25 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+
+    // ============ Automation Profiles ============
+
+    suspend fun getWallpaperProfile(profileId: Int): WallpaperProfileSnapshot? {
+        if (profileId !in 1..3) return null
+        val prefs = dataStore.data.first()
+        val raw = prefs[stringPreferencesKey(profileKey(profileId))] ?: return null
+        return runCatching { json.decodeFromString<WallpaperProfileSnapshot>(raw) }.getOrNull()
+    }
+
+    suspend fun saveWallpaperProfile(profile: WallpaperProfileSnapshot) {
+        require(profile.id in 1..3) { "Profile id must be 1..3" }
+        dataStore.edit { prefs ->
+            prefs[stringPreferencesKey(profileKey(profile.id))] = json.encodeToString(profile)
+        }
+    }
+
+    private fun profileKey(profileId: Int): String = "automation_profile_$profileId"
+
     // ============ Individual Preference Operations ============
 
     suspend fun <T> setValue(key: String, value: T) {
@@ -475,7 +525,10 @@ class PreferencesManager @Inject constructor(
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LOCK_ENABLED))
             prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_ALBUM_ID))
             prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID))
+            prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_FOLDER_ID))
+            prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_FOLDER_ID))
             prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID))
+            prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_FOLDER_ID))
             prefs.remove(intPreferencesKey(PreferenceKeys.HOME_INTERVAL_MINUTES))
             prefs.remove(intPreferencesKey(PreferenceKeys.LOCK_INTERVAL_MINUTES))
             prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_INTERVAL_MINUTES))
@@ -517,8 +570,10 @@ class PreferencesManager @Inject constructor(
             prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_GRAYSCALE))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_DOUBLE_TAP))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_OFF))
+            prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_CHANGE_ON_SCREEN_ON))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX))
             prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY))
+            prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_CROSSFADE_DURATION_MS))
 
             // Clear scaling
             prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_SCALING_TYPE))

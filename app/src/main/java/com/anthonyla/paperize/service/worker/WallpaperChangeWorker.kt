@@ -32,6 +32,7 @@ class WallpaperChangeWorker @AssistedInject constructor(
     private val reapplyEffectsUseCase: ReapplyEffectsUseCase,
     private val settingsRepository: SettingsRepository,
     private val wallpaperRepository: WallpaperRepository,
+    private val wallpaperScheduler: WallpaperScheduler,
     private val wallpaperChangeLock: WallpaperChangeLock
 ) : CoroutineWorker(context, workerParams) {
 
@@ -51,6 +52,7 @@ class WallpaperChangeWorker @AssistedInject constructor(
                 changeWallpaper(screenType)
             }
 
+            scheduleNextShortIntervalChange(screenType)
             Log.d(TAG, "Wallpaper change completed successfully for $screenType")
             Result.success()
         } catch (e: Exception) {
@@ -61,6 +63,36 @@ class WallpaperChangeWorker @AssistedInject constructor(
             } else {
                 Result.failure()
             }
+        }
+    }
+
+    private suspend fun scheduleNextShortIntervalChange(screenType: ScreenType) {
+        val settings = settingsRepository.getScheduleSettings()
+        if (!settings.enableChanger) return
+
+        val nextInterval = when (screenType) {
+            ScreenType.LIVE -> settings.liveIntervalMinutes.takeIf { settings.liveAlbumId != null }
+            ScreenType.HOME -> settings.homeIntervalMinutes.takeIf {
+                settings.homeEnabled && settings.homeAlbumId != null
+            }
+            ScreenType.LOCK -> settings.lockIntervalMinutes.takeIf {
+                settings.lockEnabled && settings.lockAlbumId != null
+            }
+            ScreenType.BOTH -> settings.homeIntervalMinutes.takeIf {
+                settings.homeEnabled &&
+                    settings.lockEnabled &&
+                    settings.homeAlbumId != null &&
+                    settings.homeAlbumId == settings.lockAlbumId &&
+                    !settings.separateSchedules
+            }
+        } ?: return
+
+        if (nextInterval in Constants.MIN_INTERVAL_MINUTES until Constants.WORK_MANAGER_MIN_PERIODIC_INTERVAL_MINUTES) {
+            wallpaperScheduler.scheduleWallpaperChange(
+                screenType = screenType,
+                intervalMinutes = nextInterval,
+                replaceExisting = false
+            )
         }
     }
 
@@ -132,7 +164,7 @@ class WallpaperChangeWorker @AssistedInject constructor(
                                     if (wallpaperRepository.getNextWallpaperInQueue(
                                             homeAlbumId, ScreenType.LOCK) == null) {
                                         wallpaperRepository.buildWallpaperQueue(
-                                            homeAlbumId, ScreenType.LOCK, settings.shuffleEnabled)
+                                            homeAlbumId, ScreenType.LOCK, settings.shuffleEnabled, settings.homeFolderId)
                                     }
                                     wallpaperRepository.getAndDequeueWallpaper(
                                         homeAlbumId, ScreenType.LOCK)

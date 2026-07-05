@@ -6,7 +6,7 @@ package com.anthonyla.paperize.core.constants
 object Constants {
     // Database
     const val DATABASE_NAME = "paperize_database"
-    const val DATABASE_VERSION = 4  // v4: Removed unused cropOffsetX/Y/Scale columns from wallpapers table
+    const val DATABASE_VERSION = 5  // v5: Added per-wallpaper framing scale/offset columns
 
     // DataStore
     const val PREFERENCES_NAME = "paperize_preferences"
@@ -19,6 +19,7 @@ object Constants {
     const val ACTION_CHANGE_WALLPAPER = "com.anthonyla.paperize.ACTION_CHANGE_WALLPAPER"
     const val ACTION_REAPPLY_EFFECTS = "com.anthonyla.paperize.ACTION_REAPPLY_EFFECTS"
     const val ACTION_RELOAD_WALLPAPER = "com.anthonyla.paperize.ACTION_RELOAD_WALLPAPER"
+    const val ACTION_REAPPLY_CURRENT_WALLPAPER = "com.anthonyla.paperize.ACTION_REAPPLY_CURRENT_WALLPAPER"
 
     // WorkManager
     const val WORK_NAME_HOME = "wallpaper_change_home"
@@ -49,7 +50,8 @@ object Constants {
     const val FLOW_SUBSCRIPTION_TIMEOUT_MS = 5000L
 
     // Scheduling
-    const val MIN_INTERVAL_MINUTES = 15
+    const val MIN_INTERVAL_MINUTES = 1
+    const val WORK_MANAGER_MIN_PERIODIC_INTERVAL_MINUTES = 15
     const val MAX_INTERVAL_MINUTES = 43200  // 30 days in minutes
     const val DEFAULT_INTERVAL_MINUTES = 60
 
@@ -109,10 +111,18 @@ object Constants {
         "tiff", "tif",   // TIFF - high quality archival format
         "svg"            // SVG - vector graphics (rasterized for wallpaper)
     )
+    val SUPPORTED_VIDEO_EXTENSIONS = setOf(
+        "mp4", "m4v", "3gp", "webm", "mkv"
+    )
+    val SUPPORTED_MEDIA_EXTENSIONS = SUPPORTED_IMAGE_EXTENSIONS + SUPPORTED_VIDEO_EXTENSIONS
 
     // Renderer
     /** Crossfade animation duration in milliseconds - consistent across all refresh rates */
-    const val CROSSFADE_DURATION_MS = 750f
+    const val CROSSFADE_DURATION_MS = 750
+    const val MIN_CROSSFADE_DURATION_MS = 0
+    const val MAX_CROSSFADE_DURATION_MS = 3000
+    const val CROSSFADE_DURATION_STEP_MS = 100
+    const val ANIMATED_IMAGE_FRAME_INTERVAL_MS = 33L
     const val RELOAD_THROTTLE_MS = 250L
     const val BLUR_MIN_THRESHOLD = 0.01f
     const val PERCENTAGE_DIVISOR = 100f
@@ -142,6 +152,8 @@ object PreferenceKeys {
     const val LOCK_ENABLED = "lock_enabled"
     const val HOME_ALBUM_ID = "home_album_id"
     const val LOCK_ALBUM_ID = "lock_album_id"
+    const val HOME_FOLDER_ID = "home_folder_id"
+    const val LOCK_FOLDER_ID = "lock_folder_id"
     const val HOME_INTERVAL_MINUTES = "home_interval_minutes"
     const val LOCK_INTERVAL_MINUTES = "lock_interval_minutes"
 
@@ -177,6 +189,7 @@ object PreferenceKeys {
 
     // Live Wallpaper Mode Settings
     const val LIVE_ALBUM_ID = "live_album_id"
+    const val LIVE_FOLDER_ID = "live_folder_id"
     const val LIVE_INTERVAL_MINUTES = "live_interval_minutes"
     const val LIVE_ENABLE_BLUR = "live_enable_blur"
     const val LIVE_BLUR = "live_blur"
@@ -188,8 +201,10 @@ object PreferenceKeys {
     const val LIVE_GRAYSCALE = "live_grayscale"
     const val LIVE_ENABLE_DOUBLE_TAP = "live_enable_double_tap"
     const val LIVE_ENABLE_CHANGE_ON_SCREEN_OFF = "live_enable_change_on_screen_off"
+    const val LIVE_ENABLE_CHANGE_ON_SCREEN_ON = "live_enable_change_on_screen_on"
     const val LIVE_ENABLE_PARALLAX = "live_enable_parallax"
     const val LIVE_PARALLAX_INTENSITY = "live_parallax_intensity"
+    const val LIVE_CROSSFADE_DURATION_MS = "live_crossfade_duration_ms"
 
     // Scaling
     const val HOME_SCALING_TYPE = "home_scaling_type"

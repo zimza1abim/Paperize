@@ -135,12 +135,18 @@ interface WallpaperDao {
     @Query("SELECT id FROM wallpapers WHERE albumId = :albumId")
     suspend fun getWallpaperIdsByAlbum(albumId: String): List<String>
 
+    @Query("SELECT id FROM wallpapers WHERE folderId = :folderId")
+    suspend fun getWallpaperIdsByFolder(folderId: String): List<String>
+
     /**
      * Get wallpaper IDs with display order for queue building (sequential mode).
      * Avoids loading full entities when only ID + order are needed.
      */
     @Query("SELECT id, displayOrder FROM wallpapers WHERE albumId = :albumId ORDER BY displayOrder ASC")
     suspend fun getWallpaperIdsAndOrderByAlbum(albumId: String): List<WallpaperIdAndOrder>
+
+    @Query("SELECT id, displayOrder FROM wallpapers WHERE folderId = :folderId ORDER BY displayOrder ASC")
+    suspend fun getWallpaperIdsAndOrderByFolder(folderId: String): List<WallpaperIdAndOrder>
 }
 
 /** Lightweight projection used for queue building — avoids loading full WallpaperEntity. */

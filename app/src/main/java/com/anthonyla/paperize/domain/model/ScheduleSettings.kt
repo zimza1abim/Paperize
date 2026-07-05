@@ -14,6 +14,8 @@ data class ScheduleSettings(
     val lockEnabled: Boolean = false,
     val homeAlbumId: String? = null,
     val lockAlbumId: String? = null,
+    val homeFolderId: String? = null,
+    val lockFolderId: String? = null,
     val homeIntervalMinutes: Int = Constants.DEFAULT_INTERVAL_MINUTES,
     val lockIntervalMinutes: Int = Constants.DEFAULT_INTERVAL_MINUTES,
     val liveIntervalMinutes: Int = Constants.DEFAULT_INTERVAL_MINUTES,
@@ -22,6 +24,7 @@ data class ScheduleSettings(
     val homeEffects: WallpaperEffects = WallpaperEffects.none(),
     val lockEffects: WallpaperEffects = WallpaperEffects.none(),
     val liveAlbumId: String? = null,
+    val liveFolderId: String? = null,
     val liveScalingType: ScalingType = ScalingType.FILL,
     val liveEffects: WallpaperEffects = WallpaperEffects.none(),
     val adaptiveBrightness: Boolean = false
@@ -47,7 +50,7 @@ data class ScheduleSettings(
      * - Separate schedules toggle
      * - Shuffle (handled separately with queue clearing)
      *
-     * Display-only settings (scaling, effects, adaptive brightness) don't affect scheduling
+     * Display-only settings (scaling) don't affect scheduling
      */
     fun hasSchedulingChanges(other: ScheduleSettings): Boolean {
         return homeEnabled != other.homeEnabled ||
@@ -55,11 +58,17 @@ data class ScheduleSettings(
                homeIntervalMinutes != other.homeIntervalMinutes ||
                lockIntervalMinutes != other.lockIntervalMinutes ||
                separateSchedules != other.separateSchedules ||
+               homeAlbumId != other.homeAlbumId ||
+               lockAlbumId != other.lockAlbumId ||
+               liveAlbumId != other.liveAlbumId ||
+               homeFolderId != other.homeFolderId ||
+               lockFolderId != other.lockFolderId ||
+               liveFolderId != other.liveFolderId ||
                liveIntervalMinutes != other.liveIntervalMinutes
     }
 
     /**
-     * Check if display settings changed (scaling, effects, adaptive brightness)
+     * Check if display settings changed (scaling)
      *
      * When these change, we should reapply the current wallpaper immediately
      * to show the user the effect, but we don't need to reschedule WorkManager

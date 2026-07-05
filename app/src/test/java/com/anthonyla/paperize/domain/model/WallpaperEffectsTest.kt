@@ -130,13 +130,23 @@ class WallpaperEffectsTest {
     }
 
     @Test
+    fun `validate coerces crossfadeDurationMs to valid range`() {
+        val over = WallpaperEffects(crossfadeDurationMs = Constants.MAX_CROSSFADE_DURATION_MS + 500)
+        val under = WallpaperEffects(crossfadeDurationMs = Constants.MIN_CROSSFADE_DURATION_MS - 500)
+
+        assertEquals(Constants.MAX_CROSSFADE_DURATION_MS, over.validate().crossfadeDurationMs)
+        assertEquals(Constants.MIN_CROSSFADE_DURATION_MS, under.validate().crossfadeDurationMs)
+    }
+
+    @Test
     fun `validate keeps valid values unchanged`() {
         val effects = WallpaperEffects(
             darkenPercentage = 50,
             blurPercentage = 25,
             vignettePercentage = 75,
             grayscalePercentage = 100,
-            parallaxIntensity = 60
+            parallaxIntensity = 60,
+            crossfadeDurationMs = 1200
         )
         
         val validated = effects.validate()
@@ -146,6 +156,7 @@ class WallpaperEffectsTest {
         assertEquals(75, validated.vignettePercentage)
         assertEquals(100, validated.grayscalePercentage)
         assertEquals(60, validated.parallaxIntensity)
+        assertEquals(1200, validated.crossfadeDurationMs)
     }
 
     @Test
@@ -188,6 +199,7 @@ class WallpaperEffectsTest {
         assertFalse(effects.enableGrayscale)
         assertFalse(effects.enableDoubleTap)
         assertFalse(effects.enableParallax)
+        assertEquals(Constants.CROSSFADE_DURATION_MS, effects.crossfadeDurationMs)
     }
 
     @Test

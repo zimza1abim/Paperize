@@ -80,6 +80,9 @@ class AlbumViewViewModel @Inject constructor(
     private val _isSelectionMode = MutableStateFlow(false)
     val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
 
+    private val _isRefreshingFolders = MutableStateFlow(false)
+    val isRefreshingFolders: StateFlow<Boolean> = _isRefreshingFolders.asStateFlow()
+
     fun addWallpapers(uris: List<String>) {
         viewModelScope.launch {
             val existingCount = wallpapers.value.size
@@ -155,6 +158,75 @@ class AlbumViewViewModel @Inject constructor(
                     Log.e(TAG, "Error adding folder to album", result.exception)
                 }
                 is com.anthonyla.paperize.core.Result.Loading -> { /* Loading state not used */ }
+            }
+        }
+    }
+
+    fun refreshFolders() {
+        if (_isRefreshingFolders.value) return
+
+        viewModelScope.launch {
+            _isRefreshingFolders.value = true
+            try {
+                when (val folderValidation = albumRepository.validateAndRemoveInvalidFolders(albumId)) {
+                    is com.anthonyla.paperize.core.Result.Error -> {
+                        Log.e(TAG, "Error validating folders", folderValidation.exception)
+                    }
+                    else -> { /* Success/loading not surfaced in UI */ }
+                }
+
+                when (val wallpaperValidation = wallpaperRepository.validateAndRemoveInvalidWallpapers(albumId)) {
+                    is com.anthonyla.paperize.core.Result.Error -> {
+                        Log.e(TAG, "Error validating wallpapers", wallpaperValidation.exception)
+                    }
+                    else -> { /* Success/loading not surfaced in UI */ }
+                }
+
+                var addedAny = false
+                folders.value.forEach { folder ->
+                    val existingUris = wallpaperRepository.getExistingWallpaperUris(albumId, folder.id)
+                    when (val scanResult = wallpaperRepository.scanFolderForWallpapers(folder.uri.toUri())) {
+                        is com.anthonyla.paperize.core.Result.Success -> {
+                            var addedInFolder = 0
+                            val baseOrder = folder.wallpapers.size
+                            scanResult.data.forEach { wallpaper ->
+                                if (wallpaper.uri !in existingUris) {
+                                    val wallpaperToAdd = wallpaper.copy(
+                                        albumId = albumId,
+                                        folderId = folder.id,
+                                        displayOrder = baseOrder + addedInFolder
+                                    )
+                                    when (val addResult = wallpaperRepository.addWallpaper(wallpaperToAdd)) {
+                                        is com.anthonyla.paperize.core.Result.Success -> {
+                                            addedAny = true
+                                            addedInFolder += 1
+                                        }
+                                        is com.anthonyla.paperize.core.Result.Error -> {
+                                            Log.e(TAG, "Error adding scanned wallpaper", addResult.exception)
+                                        }
+                                        is com.anthonyla.paperize.core.Result.Loading -> { /* Not used */ }
+                                    }
+                                }
+                            }
+                        }
+                        is com.anthonyla.paperize.core.Result.Error -> {
+                            Log.e(TAG, "Error scanning folder '${folder.name}'", scanResult.exception)
+                        }
+                        is com.anthonyla.paperize.core.Result.Loading -> { /* Not used */ }
+                    }
+                }
+
+                if (addedAny) {
+                    wallpaperRepository.clearQueuesForAlbum(albumId)
+                    when (val coverResult = albumRepository.refreshFolderCovers(albumId)) {
+                        is com.anthonyla.paperize.core.Result.Error -> {
+                            Log.e(TAG, "Error refreshing folder covers", coverResult.exception)
+                        }
+                        else -> { /* Success/loading not surfaced in UI */ }
+                    }
+                }
+            } finally {
+                _isRefreshingFolders.value = false
             }
         }
     }

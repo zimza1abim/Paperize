@@ -8,10 +8,11 @@ import com.anthonyla.paperize.core.EmptyAlbumException
 import com.anthonyla.paperize.core.NoValidWallpaperException
 import com.anthonyla.paperize.core.Result
 import com.anthonyla.paperize.core.ScreenType
-import com.anthonyla.paperize.core.util.adaptiveBrightnessAdjustment
+import com.anthonyla.paperize.core.WallpaperMediaType
 import com.anthonyla.paperize.core.util.getWallpaperRenderSize
 import com.anthonyla.paperize.core.util.processBitmap
 import com.anthonyla.paperize.core.util.retrieveBitmap
+import com.anthonyla.paperize.core.util.retrieveVideoFrameBitmap
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.repository.WallpaperRepository
 import com.anthonyla.paperize.core.constants.Constants
@@ -39,12 +40,17 @@ class ChangeWallpaperUseCase @Inject constructor(
         return try {
             // Get settings first - needed for queue building
             val settings = settingsRepository.getScheduleSettings()
+            val folderId = when (screenType) {
+                ScreenType.LIVE -> settings.liveFolderId
+                ScreenType.HOME, ScreenType.BOTH -> settings.homeFolderId
+                ScreenType.LOCK -> settings.lockFolderId
+            }
 
             // Check if queue exists, build it if empty
             val queueCheck = wallpaperRepository.getNextWallpaperInQueue(albumId, screenType)
             if (queueCheck == null) {
                 // Queue is empty, build it first
-                val buildResult = wallpaperRepository.buildWallpaperQueue(albumId, screenType, settings.shuffleEnabled)
+                val buildResult = wallpaperRepository.buildWallpaperQueue(albumId, screenType, settings.shuffleEnabled, folderId)
                 if (buildResult is Result.Error) {
                     return Result.Error(Exception(context.getString(R.string.error_failed_to_build_queue)))
                 }
@@ -77,7 +83,7 @@ class ChangeWallpaperUseCase @Inject constructor(
                     if (queueRebuildAttempts > 2) {
                         return Result.Error(EmptyAlbumException(context.getString(R.string.no_wallpapers_in_album)))
                     }
-                    val rebuildResult = wallpaperRepository.buildWallpaperQueue(albumId, screenType, settings.shuffleEnabled)
+                    val rebuildResult = wallpaperRepository.buildWallpaperQueue(albumId, screenType, settings.shuffleEnabled, folderId)
                     if (rebuildResult is Result.Error) {
                         return Result.Error(Exception(context.getString(R.string.error_failed_to_build_queue)))
                     }
@@ -89,32 +95,41 @@ class ChangeWallpaperUseCase @Inject constructor(
                 // which is handled below. Avoiding the extra contentResolver.query() saves
                 // one round-trip per wallpaper on the hot path.
                 try {
-                    val bitmap = retrieveBitmap(context, uri, screenSize.width, screenSize.height, scaling)
+                    val bitmap = when (candidate.mediaType) {
+                        WallpaperMediaType.VIDEO -> retrieveVideoFrameBitmap(
+                            context,
+                            uri,
+                            screenSize.width,
+                            screenSize.height,
+                            scaling,
+                            candidate.framing
+                        )
+                        WallpaperMediaType.IMAGE -> retrieveBitmap(
+                            context,
+                            uri,
+                            screenSize.width,
+                            screenSize.height,
+                            scaling,
+                            candidate.framing
+                        )
+                    }
                     if (bitmap != null) {
                         var processedBitmap: Bitmap? = null
                         try {
                             processedBitmap = processBitmap(
                                 source = bitmap,
-                                enableDarken = effects.enableDarken,
-                                darkenPercent = effects.darkenPercentage,
-                                enableBlur = effects.enableBlur,
-                                blurPercent = effects.blurPercentage,
-                                enableVignette = effects.enableVignette,
-                                vignettePercent = effects.vignettePercentage,
-                                enableGrayscale = effects.enableGrayscale,
-                                grayscalePercent = effects.grayscalePercentage
+                                enableDarken = false,
+                                darkenPercent = 0,
+                                enableBlur = false,
+                                blurPercent = 0,
+                                enableVignette = false,
+                                vignettePercent = 0,
+                                enableGrayscale = false,
+                                grayscalePercent = 0
                             )
 
                             if (processedBitmap !== bitmap) {
                                 bitmap.recycle()
-                            }
-
-                            if (settings.adaptiveBrightness) {
-                                val previousBitmap = processedBitmap
-                                processedBitmap = adaptiveBrightnessAdjustment(context, processedBitmap)
-                                if (processedBitmap !== previousBitmap) {
-                                    previousBitmap.recycle()
-                                }
                             }
 
                             finalBitmap = processedBitmap
@@ -154,7 +169,7 @@ class ChangeWallpaperUseCase @Inject constructor(
             try {
                 val nextItem = wallpaperRepository.getNextWallpaperInQueue(albumId, screenType)
                 if (nextItem == null) {
-                    wallpaperRepository.buildWallpaperQueue(albumId, screenType, settings.shuffleEnabled)
+                    wallpaperRepository.buildWallpaperQueue(albumId, screenType, settings.shuffleEnabled, folderId)
                 }
             } catch (e: Exception) {
                 android.util.Log.w("ChangeWallpaperUseCase", "Queue refill failed, will rebuild on next change", e)

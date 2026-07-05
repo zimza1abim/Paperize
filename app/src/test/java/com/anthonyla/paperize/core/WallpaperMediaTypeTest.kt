@@ -97,6 +97,7 @@ class WallpaperMediaTypeTest {
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromExtension("JPG"))
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromExtension("PNG"))
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromExtension("WEBP"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("MP4"))
     }
 
     @Test
@@ -104,6 +105,20 @@ class WallpaperMediaTypeTest {
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromExtension("Jpg"))
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromExtension("PnG"))
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromExtension("WebP"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("Mp4"))
+    }
+
+    // ============================================================
+    // Test: fromExtension - Video formats
+    // ============================================================
+
+    @Test
+    fun `fromExtension with video formats returns VIDEO`() {
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("mp4"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("m4v"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("3gp"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("webm"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromExtension("mkv"))
     }
 
     // ============================================================
@@ -112,7 +127,6 @@ class WallpaperMediaTypeTest {
 
     @Test
     fun `fromExtension with unsupported extension returns null`() {
-        assertNull(WallpaperMediaType.fromExtension("mp4"))
         assertNull(WallpaperMediaType.fromExtension("mp3"))
         assertNull(WallpaperMediaType.fromExtension("pdf"))
         assertNull(WallpaperMediaType.fromExtension("txt"))
@@ -140,10 +154,17 @@ class WallpaperMediaTypeTest {
     }
 
     @Test
+    fun `fromString with VIDEO returns VIDEO`() {
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromString("VIDEO"))
+    }
+
+    @Test
     fun `fromString is case insensitive`() {
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromString("image"))
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromString("Image"))
         assertEquals(WallpaperMediaType.IMAGE, WallpaperMediaType.fromString("iMaGe"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromString("video"))
+        assertEquals(WallpaperMediaType.VIDEO, WallpaperMediaType.fromString("Video"))
     }
 
     // ============================================================
@@ -163,7 +184,6 @@ class WallpaperMediaTypeTest {
     @Test
     fun `fromString with invalid value returns null`() {
         assertNull(WallpaperMediaType.fromString("invalid"))
-        assertNull(WallpaperMediaType.fromString("video"))
         assertNull(WallpaperMediaType.fromString("IMAGES"))
     }
 
@@ -204,6 +224,22 @@ class WallpaperMediaTypeTest {
         assertEquals(12, WallpaperMediaType.IMAGE.supportedExtensions.size)
     }
 
+    @Test
+    fun `VIDEO supportedExtensions contains all expected formats`() {
+        val extensions = WallpaperMediaType.VIDEO.supportedExtensions
+
+        assertTrue(extensions.contains("mp4"))
+        assertTrue(extensions.contains("m4v"))
+        assertTrue(extensions.contains("3gp"))
+        assertTrue(extensions.contains("webm"))
+        assertTrue(extensions.contains("mkv"))
+    }
+
+    @Test
+    fun `VIDEO supportedExtensions has expected count`() {
+        assertEquals(5, WallpaperMediaType.VIDEO.supportedExtensions.size)
+    }
+
     // ============================================================
     // Test: supportedInStaticMode property
     // ============================================================
@@ -211,6 +247,11 @@ class WallpaperMediaTypeTest {
     @Test
     fun `IMAGE is supported in static mode`() {
         assertTrue(WallpaperMediaType.IMAGE.supportedInStaticMode)
+    }
+
+    @Test
+    fun `VIDEO is supported in static mode`() {
+        assertTrue(WallpaperMediaType.VIDEO.supportedInStaticMode)
     }
 
     // ============================================================
@@ -222,17 +263,23 @@ class WallpaperMediaTypeTest {
         assertTrue(WallpaperMediaType.IMAGE.supportedInLiveMode)
     }
 
+    @Test
+    fun `VIDEO is supported in live mode`() {
+        assertTrue(WallpaperMediaType.VIDEO.supportedInLiveMode)
+    }
+
     // ============================================================
     // Test: Enum values
     // ============================================================
 
     @Test
-    fun `enum has exactly one value`() {
-        assertEquals(1, WallpaperMediaType.entries.size)
+    fun `enum has exactly two values`() {
+        assertEquals(2, WallpaperMediaType.entries.size)
     }
 
     @Test
-    fun `enum value name is IMAGE`() {
+    fun `enum value names are stable`() {
         assertEquals("IMAGE", WallpaperMediaType.IMAGE.name)
+        assertEquals("VIDEO", WallpaperMediaType.VIDEO.name)
     }
 }

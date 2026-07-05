@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <!-- Features -->
     <uses-feature
@@ -53,6 +54,122 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <activity
+            android:name=".presentation.profile.ApplyProfileActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="profile"
+                    android:path="/apply"
+                    android:scheme="paperize" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="profile"
+                    android:path="/save"
+                    android:scheme="paperize" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".presentation.profile.SaveProfile1Activity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Paperize Save Profile 1"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".presentation.profile.SaveProfile2Activity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Paperize Save Profile 2"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".presentation.profile.SaveProfile3Activity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Paperize Save Profile 3"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".presentation.profile.ApplyProfile1Activity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Paperize Apply Profile 1"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".presentation.profile.ApplyProfile2Activity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Paperize Apply Profile 2"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".presentation.profile.ApplyProfile3Activity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Paperize Apply Profile 3"
+            android:noHistory="true"
+            android:theme="@style/Theme.Paperize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service
@@ -69,6 +186,8 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.USER_UNLOCKED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
@@ -87,6 +206,7 @@
         <!-- Live Wallpaper Service -->
         <service
             android:name=".service.livewallpaper.PaperizeLiveWallpaperService"
+            android:directBootAware="true"
             android:enabled="true"
             android:exported="true"
             android:label="@string/live_wallpaper_name"
@@ -102,3 +222,6 @@
     </application>
 
 </manifest>
+
+
+

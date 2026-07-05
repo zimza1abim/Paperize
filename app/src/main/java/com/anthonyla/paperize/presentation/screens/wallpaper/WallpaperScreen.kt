@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +55,7 @@ import com.anthonyla.paperize.presentation.screens.wallpaper.components.SettingS
 import com.anthonyla.paperize.presentation.screens.wallpaper.components.SettingSwitchWithSlider
 import com.anthonyla.paperize.presentation.screens.wallpaper.components.TimeIntervalPicker
 import com.anthonyla.paperize.presentation.theme.AppSpacing
+import kotlin.math.roundToInt
 
 enum class AlbumSelectionContext {
     HOME, LOCK, BOTH, LIVE
@@ -75,6 +78,9 @@ fun WallpaperScreen(
     var showAlbumSelectionSheet by rememberSaveable { mutableStateOf(false) }
     var albumSelectionContext by rememberSaveable { mutableStateOf(AlbumSelectionContext.BOTH) }
     var showEmptyAlbumWarning by rememberSaveable { mutableStateOf(false) }
+    var liveCrossfadeDurationValue by remember(scheduleSettings.liveEffects.crossfadeDurationMs) {
+        mutableFloatStateOf(scheduleSettings.liveEffects.crossfadeDurationMs.toFloat())
+    }
 
     fun updateSettingsDebounced(newSettings: ScheduleSettings) {
         onUpdateScheduleSettingsDebounced(newSettings)
@@ -651,245 +657,6 @@ fun WallpaperScreen(
             }
         }
 
-        // Visual Effects Group
-        Card(
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(PaddingValues(horizontal = AppSpacing.small, vertical = AppSpacing.extraSmall))
-        ) {
-            Column(
-                modifier = Modifier.padding(AppSpacing.large),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                Text(
-                    text = stringResource(R.string.visual_effects),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = AppSpacing.small),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                // Darken/Brightness
-                SettingSwitchWithSlider(
-                    title = R.string.change_brightness,
-                    description = R.string.change_the_image_brightness,
-                    checked = if (wallpaperMode == WallpaperMode.STATIC) {
-                        when {
-                            homeEnabled && lockEnabled -> scheduleSettings.homeEffects.enableDarken && scheduleSettings.lockEffects.enableDarken
-                            homeEnabled -> scheduleSettings.homeEffects.enableDarken
-                            else -> scheduleSettings.lockEffects.enableDarken
-                        }
-                    } else {
-                        scheduleSettings.liveEffects.enableDarken
-                    },
-                    onCheckedChange = { enabled ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(enableDarken = enabled) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(enableDarken = enabled) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(enableDarken = enabled)
-                                )
-                            )
-                        }
-                    },
-                    // Show separate sliders only when both enabled AND separate schedules is on (Static only)
-                    bothEnabled = wallpaperMode == WallpaperMode.STATIC && homeEnabled && lockEnabled && scheduleSettings.separateSchedules,
-                    homePercentage = if (wallpaperMode == WallpaperMode.STATIC) scheduleSettings.homeEffects.darkenPercentage else scheduleSettings.liveEffects.darkenPercentage,
-                    lockPercentage = scheduleSettings.lockEffects.darkenPercentage,
-                    onPercentageChange = { homePercent, lockPercent ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(darkenPercentage = homePercent) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(darkenPercentage = lockPercent) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(darkenPercentage = homePercent)
-                                )
-                            )
-                        }
-                    }
-                )
-
-                // Blur
-                SettingSwitchWithSlider(
-                    title = R.string.change_blur,
-                    description = R.string.add_blur_to_the_image,
-                    checked = if (wallpaperMode == WallpaperMode.STATIC) {
-                        when {
-                            homeEnabled && lockEnabled -> scheduleSettings.homeEffects.enableBlur && scheduleSettings.lockEffects.enableBlur
-                            homeEnabled -> scheduleSettings.homeEffects.enableBlur
-                            else -> scheduleSettings.lockEffects.enableBlur
-                        }
-                    } else {
-                        scheduleSettings.liveEffects.enableBlur
-                    },
-                    onCheckedChange = { enabled ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(enableBlur = enabled) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(enableBlur = enabled) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(enableBlur = enabled)
-                                )
-                            )
-                        }
-                    },
-                    // Show separate sliders only when both enabled AND separate schedules is on (Static only)
-                    bothEnabled = wallpaperMode == WallpaperMode.STATIC && homeEnabled && lockEnabled && scheduleSettings.separateSchedules,
-                    homePercentage = if (wallpaperMode == WallpaperMode.STATIC) scheduleSettings.homeEffects.blurPercentage else scheduleSettings.liveEffects.blurPercentage,
-                    lockPercentage = scheduleSettings.lockEffects.blurPercentage,
-                    onPercentageChange = { homePercent, lockPercent ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(blurPercentage = homePercent) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(blurPercentage = lockPercent) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(blurPercentage = homePercent)
-                                )
-                            )
-                        }
-                    }
-                )
-
-                // Vignette
-                SettingSwitchWithSlider(
-                    title = R.string.change_vignette,
-                    description = R.string.darken_the_edges_of_the_image,
-                    checked = if (wallpaperMode == WallpaperMode.STATIC) {
-                        when {
-                            homeEnabled && lockEnabled -> scheduleSettings.homeEffects.enableVignette && scheduleSettings.lockEffects.enableVignette
-                            homeEnabled -> scheduleSettings.homeEffects.enableVignette
-                            else -> scheduleSettings.lockEffects.enableVignette
-                        }
-                    } else {
-                        scheduleSettings.liveEffects.enableVignette
-                    },
-                    onCheckedChange = { enabled ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(enableVignette = enabled) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(enableVignette = enabled) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(enableVignette = enabled)
-                                )
-                            )
-                        }
-                    },
-                    // Show separate sliders only when both enabled AND separate schedules is on (Static only)
-                    bothEnabled = wallpaperMode == WallpaperMode.STATIC && homeEnabled && lockEnabled && scheduleSettings.separateSchedules,
-                    homePercentage = if (wallpaperMode == WallpaperMode.STATIC) scheduleSettings.homeEffects.vignettePercentage else scheduleSettings.liveEffects.vignettePercentage,
-                    lockPercentage = scheduleSettings.lockEffects.vignettePercentage,
-                    onPercentageChange = { homePercent, lockPercent ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(vignettePercentage = homePercent) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(vignettePercentage = lockPercent) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(vignettePercentage = homePercent)
-                                )
-                            )
-                        }
-                    }
-                )
-
-                // Grayscale
-                SettingSwitchWithSlider(
-                    title = R.string.gray_filter,
-                    description = R.string.make_the_colors_grayscale,
-                    checked = if (wallpaperMode == WallpaperMode.STATIC) {
-                        when {
-                            homeEnabled && lockEnabled -> scheduleSettings.homeEffects.enableGrayscale && scheduleSettings.lockEffects.enableGrayscale
-                            homeEnabled -> scheduleSettings.homeEffects.enableGrayscale
-                            else -> scheduleSettings.lockEffects.enableGrayscale
-                        }
-                    } else {
-                        scheduleSettings.liveEffects.enableGrayscale
-                    },
-                    onCheckedChange = { enabled ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(enableGrayscale = enabled) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(enableGrayscale = enabled) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsImmediate(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(enableGrayscale = enabled)
-                                )
-                            )
-                        }
-                    },
-                    // Show separate sliders only when both enabled AND separate schedules is on (Static only)
-                    bothEnabled = wallpaperMode == WallpaperMode.STATIC && homeEnabled && lockEnabled && scheduleSettings.separateSchedules,
-                    homePercentage = if (wallpaperMode == WallpaperMode.STATIC) scheduleSettings.homeEffects.grayscalePercentage else scheduleSettings.liveEffects.grayscalePercentage,
-                    lockPercentage = scheduleSettings.lockEffects.grayscalePercentage,
-                    onPercentageChange = { homePercent, lockPercent ->
-                        if (wallpaperMode == WallpaperMode.STATIC) {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    homeEffects = if (homeEnabled) scheduleSettings.homeEffects.copy(grayscalePercentage = homePercent) else scheduleSettings.homeEffects,
-                                    lockEffects = if (lockEnabled) scheduleSettings.lockEffects.copy(grayscalePercentage = lockPercent) else scheduleSettings.lockEffects
-                                )
-                            )
-                        } else {
-                            updateSettingsDebounced(
-                                scheduleSettings.copy(
-                                    liveEffects = scheduleSettings.liveEffects.copy(grayscalePercentage = homePercent)
-                                )
-                            )
-                        }
-                    }
-                )
-
-                // Adaptive Brightness
-                SettingSwitch(
-                    title = R.string.adaptive_brightness,
-                    description = if (scheduleSettings.adaptiveBrightness && !scheduleSettings.separateSchedules) null else R.string.adjust_brightness_based_on_mode,
-                    checked = scheduleSettings.adaptiveBrightness,
-                    onCheckedChange = { enabled ->
-                        updateSettingsImmediate(scheduleSettings.copy(adaptiveBrightness = enabled))
-                    }
-                )
-            }
-        }
-
         // Interactive Effects Group (Live Wallpaper Mode Only)
         if (wallpaperMode == WallpaperMode.LIVE) {
             Card(
@@ -942,6 +709,20 @@ fun WallpaperScreen(
                         }
                     )
 
+                    // Change wallpaper on screen on
+                    SettingSwitch(
+                        title = R.string.change_on_screen_on,
+                        description = if (scheduleSettings.liveEffects.enableChangeOnScreenOn) null else R.string.change_wallpaper_when_screen_turns_on,
+                        checked = scheduleSettings.liveEffects.enableChangeOnScreenOn,
+                        onCheckedChange = { enabled ->
+                            updateSettingsImmediate(
+                                scheduleSettings.copy(
+                                    liveEffects = scheduleSettings.liveEffects.copy(enableChangeOnScreenOn = enabled)
+                                )
+                            )
+                        }
+                    )
+
                     // Parallax effect
                     SettingSwitchWithSlider(
                         title = R.string.parallax_effect,
@@ -965,6 +746,66 @@ fun WallpaperScreen(
                             )
                         }
                     )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AppSpacing.small),
+                        verticalArrangement = Arrangement.spacedBy(AppSpacing.extraSmall)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.transition_duration),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.transition_duration_value_ms,
+                                    liveCrossfadeDurationValue.roundToInt()
+                                ),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(start = AppSpacing.medium),
+                                maxLines = 1
+                            )
+                        }
+                        Text(
+                            text = stringResource(R.string.transition_duration_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Slider(
+                            value = liveCrossfadeDurationValue,
+                            onValueChange = { value ->
+                                val stepped = (
+                                    value / Constants.CROSSFADE_DURATION_STEP_MS
+                                ).roundToInt() * Constants.CROSSFADE_DURATION_STEP_MS
+                                liveCrossfadeDurationValue = stepped.coerceIn(
+                                    Constants.MIN_CROSSFADE_DURATION_MS,
+                                    Constants.MAX_CROSSFADE_DURATION_MS
+                                ).toFloat()
+                                updateSettingsDebounced(
+                                    scheduleSettings.copy(
+                                        liveEffects = scheduleSettings.liveEffects.copy(
+                                            crossfadeDurationMs = liveCrossfadeDurationValue.roundToInt()
+                                        )
+                                    )
+                                )
+                            },
+                            valueRange = Constants.MIN_CROSSFADE_DURATION_MS.toFloat()..Constants.MAX_CROSSFADE_DURATION_MS.toFloat(),
+                            steps = (Constants.MAX_CROSSFADE_DURATION_MS - Constants.MIN_CROSSFADE_DURATION_MS) /
+                                Constants.CROSSFADE_DURATION_STEP_MS - 1
+                        )
+                    }
                 }
             }
         }

@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,14 @@ fun AlbumViewScreen(
     var showSortSheet by rememberSaveable { mutableStateOf(false) }
     var showDeleteAlbumDialog by rememberSaveable { mutableStateOf(false) }
     var sortOption by rememberSaveable { mutableStateOf(SortOption.DATE_ADDED_DESC) }
+    var requestedFolderRefresh by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(folders) {
+        if (!requestedFolderRefresh && folders.isNotEmpty()) {
+            requestedFolderRefresh = true
+            viewModel.refreshFolders()
+        }
+    }
 
     // Handle back press when in selection mode
     BackHandler(enabled = isSelectionMode) {
@@ -106,20 +115,34 @@ fun AlbumViewScreen(
             .aspectRatio(Constants.WALLPAPER_ASPECT_RATIO)
     }
 
-    // Image picker
+    // Media picker. ACTION_GET_CONTENT makes Gallery-style providers visible while
+    // keeping the existing URI pipeline; persistable permission is attempted when supported.
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris: List<Uri> ->
-        if (uris.isNotEmpty()) {
-            val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            uris.forEach { uri ->
-                try {
-                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-                } catch (_: Exception) {
-                    // Handle permission failure
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data
+            val uris = buildList {
+                data?.clipData?.let { clipData ->
+                    repeat(clipData.itemCount) { index ->
+                        clipData.getItemAt(index).uri?.let(::add)
+                    }
+                }
+                if (isEmpty()) {
+                    data?.data?.let(::add)
                 }
             }
-            viewModel.addWallpapers(uris.map { it.toString() })
+            if (uris.isNotEmpty()) {
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                uris.forEach { uri ->
+                    try {
+                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                    } catch (_: Exception) {
+                        // Gallery providers often grant transient read access only.
+                    }
+                }
+                viewModel.addWallpapers(uris.map { it.toString() })
+            }
         }
     }
 
@@ -158,7 +181,19 @@ fun AlbumViewScreen(
             if (!isSelectionMode) {
                 AddAlbumAnimatedFab(
                     isLoading = false,
-                    onImageClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
+                    onImageClick = {
+                        val pickIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "*/*"
+                            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            addFlags(
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                            )
+                        }
+                        imagePickerLauncher.launch(Intent.createChooser(pickIntent, "Add media"))
+                    },
                     onFolderClick = { folderPickerLauncher.launch(null) }
                 )
             }
@@ -213,6 +248,7 @@ fun AlbumViewScreen(
             ) { wallpaper ->
                 WallpaperItem(
                     wallpaperUri = wallpaper.uri,
+                    mediaType = wallpaper.mediaType,
                     isSelected = wallpaper.id in selectedWallpapers,
                     isSelectionMode = isSelectionMode,
                     onClick = {
@@ -270,3 +306,4 @@ fun AlbumViewScreen(
         )
     }
 }
+

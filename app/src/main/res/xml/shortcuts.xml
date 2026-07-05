@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="apply_profile_1"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_apply_profile_1_short"
+        android:shortcutLongLabel="@string/shortcut_apply_profile_1_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="paperize://profile/apply?id=1"
+            android:targetPackage="com.anthonyla.paperize"
+            android:targetClass="com.anthonyla.paperize.presentation.profile.ApplyProfileActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="apply_profile_2"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_apply_profile_2_short"
+        android:shortcutLongLabel="@string/shortcut_apply_profile_2_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="paperize://profile/apply?id=2"
+            android:targetPackage="com.anthonyla.paperize"
+            android:targetClass="com.anthonyla.paperize.presentation.profile.ApplyProfileActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="apply_profile_3"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_apply_profile_3_short"
+        android:shortcutLongLabel="@string/shortcut_apply_profile_3_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="paperize://profile/apply?id=3"
+            android:targetPackage="com.anthonyla.paperize"
+            android:targetClass="com.anthonyla.paperize.presentation.profile.ApplyProfileActivity" />
+    </shortcut>
+</shortcuts>

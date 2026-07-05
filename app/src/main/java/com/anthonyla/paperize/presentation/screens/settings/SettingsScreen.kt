@@ -1,5 +1,6 @@
 package com.anthonyla.paperize.presentation.screens.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.anthonyla.paperize.R
+import com.anthonyla.paperize.core.WallpaperMode
+import com.anthonyla.paperize.domain.model.WallpaperProfileSnapshot
 import com.anthonyla.paperize.presentation.common.components.SettingSwitchItem
 import com.anthonyla.paperize.presentation.theme.AppSpacing
 import com.anthonyla.paperize.core.util.BatteryOptimizationUtil.isIgnoringBatteryOptimizations
@@ -44,10 +47,21 @@ fun SettingsScreen(
 ) {
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val wallpaperMode by viewModel.wallpaperMode.collectAsStateWithLifecycle()
+    val profileSlots by viewModel.profileSlots.collectAsStateWithLifecycle()
+    val profileSources by viewModel.profileSources.collectAsStateWithLifecycle()
+    val profileMessage by viewModel.profileMessage.collectAsStateWithLifecycle()
     var showResetDialog by remember { mutableStateOf(false) }
     var showModeChangeDialog by remember { mutableStateOf(false) }
     var pendingMode by remember { mutableStateOf<com.anthonyla.paperize.core.WallpaperMode?>(null) }
+    var editingProfileId by remember { mutableStateOf<Int?>(null) }
     val context = LocalContext.current
+
+    LaunchedEffect(profileMessage) {
+        profileMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.consumeProfileMessage()
+        }
+    }
 
     var isIgnoringBatteryOptimizations by remember {
         mutableStateOf(isIgnoringBatteryOptimizations(context))
@@ -153,6 +167,68 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+
+            // Automation Profiles Section
+            SectionHeader(
+                icon = Icons.Filled.Build,
+                title = "Automation profiles"
+            )
+
+            Spacer(modifier = Modifier.height(AppSpacing.medium))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(AppSpacing.large),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
+                ) {
+                    Text(
+                        text = "A profile saves the current mode, selected albums, folders, schedule, and effects. Configure albums on the main screen, then save a slot here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    profileSlots.forEach { slot ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = slot.snapshot?.name?.takeIf { it.isNotBlank() } ?: "Apply Profile ${slot.id}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (slot.isSaved) "${slot.modeLabel}\n${slot.detail}" else "Empty",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 4,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            TextButton(onClick = { editingProfileId = slot.id }) {
+                                Text("Configure")
+                            }
+
+                            FilledTonalButton(
+                                onClick = { viewModel.applyProfile(slot.id) },
+                                enabled = slot.isSaved
+                            ) {
+                                Text("Apply")
+                            }
+                        }
+                    }
                 }
             }
 
@@ -330,6 +406,30 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(AppSpacing.large))
         }
 
+        editingProfileId?.let { profileId ->
+            val slot = profileSlots.firstOrNull { it.id == profileId }
+            ProfileEditorDialog(
+                profileId = profileId,
+                slot = slot,
+                currentMode = wallpaperMode,
+                sources = profileSources,
+                onDismiss = { editingProfileId = null },
+                onSave = { profileName, mode, homeEnabled, lockEnabled, homeSourceKey, lockSourceKey, liveSourceKey ->
+                    viewModel.saveConfiguredProfile(
+                        profileId = profileId,
+                        profileName = profileName,
+                        mode = mode,
+                        homeEnabled = homeEnabled,
+                        lockEnabled = lockEnabled,
+                        homeSourceKey = homeSourceKey,
+                        lockSourceKey = lockSourceKey,
+                        liveSourceKey = liveSourceKey
+                    )
+                    editingProfileId = null
+                }
+            )
+        }
+
         if (showResetDialog) {
             AlertDialog(
                 onDismissRequest = { showResetDialog = false },
@@ -396,6 +496,165 @@ fun SettingsScreen(
     }
 }
 
+
+@Composable
+private fun ProfileEditorDialog(
+    profileId: Int,
+    slot: ProfileSlotUiState?,
+    currentMode: WallpaperMode,
+    sources: List<ProfileSourceUiState>,
+    onDismiss: () -> Unit,
+    onSave: (String, WallpaperMode, Boolean, Boolean, String?, String?, String?) -> Unit
+) {
+    val snapshot = slot?.snapshot
+    var profileName by remember(profileId) { mutableStateOf(snapshot?.name ?: "Apply Profile $profileId") }
+    var mode by remember(profileId) { mutableStateOf(snapshot?.toMode() ?: currentMode) }
+    var homeEnabled by remember(profileId) { mutableStateOf(snapshot?.homeEnabled ?: true) }
+    var lockEnabled by remember(profileId) { mutableStateOf(snapshot?.lockEnabled ?: true) }
+    var homeSourceKey by remember(profileId, sources) {
+        mutableStateOf(snapshot?.sourceKey(snapshot.homeAlbumId, snapshot.homeFolderId) ?: sources.firstOrNull()?.key)
+    }
+    var lockSourceKey by remember(profileId, sources) {
+        mutableStateOf(snapshot?.sourceKey(snapshot.lockAlbumId, snapshot.lockFolderId) ?: sources.firstOrNull()?.key)
+    }
+    var liveSourceKey by remember(profileId, sources) {
+        mutableStateOf(snapshot?.sourceKey(snapshot.liveAlbumId, snapshot.liveFolderId) ?: sources.firstOrNull()?.key)
+    }
+    val dialogTitle = snapshot?.name?.takeIf { it.isNotBlank() } ?: "Apply Profile $profileId"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Configure $dialogTitle") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)) {
+                Text(
+                    text = "Choose exactly what this profile applies. Folder choices use only that folder's media.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = profileName,
+                    onValueChange = { profileName = it },
+                    label = { Text("Shortcut name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    FilterChip(
+                        selected = mode == WallpaperMode.STATIC,
+                        onClick = { mode = WallpaperMode.STATIC },
+                        label = { Text("Static") }
+                    )
+                    FilterChip(
+                        selected = mode == WallpaperMode.LIVE,
+                        onClick = { mode = WallpaperMode.LIVE },
+                        label = { Text("Live") }
+                    )
+                }
+
+                if (sources.isEmpty()) {
+                    Text(
+                        text = "No albums or folders available. Create an album or add a folder first.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else if (mode == WallpaperMode.LIVE) {
+                    ProfileSourceDropdown(
+                        label = "Live source",
+                        selectedKey = liveSourceKey,
+                        sources = sources,
+                        onSelected = { liveSourceKey = it }
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = homeEnabled, onCheckedChange = { homeEnabled = it })
+                        Text("Home screen")
+                    }
+                    if (homeEnabled) {
+                        ProfileSourceDropdown(
+                            label = "Home source",
+                            selectedKey = homeSourceKey,
+                            sources = sources,
+                            onSelected = { homeSourceKey = it }
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = lockEnabled, onCheckedChange = { lockEnabled = it })
+                        Text("Lock screen")
+                    }
+                    if (lockEnabled) {
+                        ProfileSourceDropdown(
+                            label = "Lock source",
+                            selectedKey = lockSourceKey,
+                            sources = sources,
+                            onSelected = { lockSourceKey = it }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = sources.isNotEmpty(),
+                onClick = { onSave(profileName, mode, homeEnabled, lockEnabled, homeSourceKey, lockSourceKey, liveSourceKey) }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun ProfileSourceDropdown(
+    label: String,
+    selectedKey: String?,
+    sources: List<ProfileSourceUiState>,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = sources.firstOrNull { it.key == selectedKey }?.label ?: "Select source"
+
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box {
+            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = selectedLabel,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                sources.forEach { source ->
+                    DropdownMenuItem(
+                        text = { Text(source.label) },
+                        onClick = {
+                            onSelected(source.key)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun WallpaperProfileSnapshot.sourceKey(albumId: String?, folderId: String?): String? {
+    if (albumId == null) return null
+    return if (folderId == null) "album|$albumId" else "folder|$albumId|$folderId"
+}
+
 /**
  * Section header with icon and title for better visual hierarchy
  */
@@ -437,3 +696,5 @@ private fun SectionHeader(
         }
     }
 }
+
+

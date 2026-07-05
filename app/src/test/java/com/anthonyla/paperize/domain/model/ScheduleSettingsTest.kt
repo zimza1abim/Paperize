@@ -17,9 +17,9 @@ class ScheduleSettingsTest {
     @Test
     fun `validate coerces interval below minimum to minimum`() {
         val settings = ScheduleSettings(
-            homeIntervalMinutes = 5,  // Below MIN_INTERVAL_MINUTES (15)
-            lockIntervalMinutes = 10,
-            liveIntervalMinutes = 1
+            homeIntervalMinutes = 0,
+            lockIntervalMinutes = -10,
+            liveIntervalMinutes = 0
         )
         
         val validated = settings.validate()
@@ -27,6 +27,21 @@ class ScheduleSettingsTest {
         assertEquals(Constants.MIN_INTERVAL_MINUTES, validated.homeIntervalMinutes)
         assertEquals(Constants.MIN_INTERVAL_MINUTES, validated.lockIntervalMinutes)
         assertEquals(Constants.MIN_INTERVAL_MINUTES, validated.liveIntervalMinutes)
+    }
+
+    @Test
+    fun `validate keeps short intervals above minimum unchanged`() {
+        val settings = ScheduleSettings(
+            homeIntervalMinutes = 5,
+            lockIntervalMinutes = 10,
+            liveIntervalMinutes = 1
+        )
+
+        val validated = settings.validate()
+
+        assertEquals(5, validated.homeIntervalMinutes)
+        assertEquals(10, validated.lockIntervalMinutes)
+        assertEquals(1, validated.liveIntervalMinutes)
     }
 
     @Test

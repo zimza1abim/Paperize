@@ -23,6 +23,7 @@ import android.graphics.RenderNode
 import android.graphics.Shader
 import android.hardware.HardwareBuffer
 import android.media.ImageReader
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import android.util.Size
@@ -32,6 +33,7 @@ import androidx.compose.ui.util.fastRoundToInt
 import androidx.exifinterface.media.ExifInterface
 import com.anthonyla.paperize.core.ScalingType
 import com.anthonyla.paperize.core.WallpaperMediaType
+import com.anthonyla.paperize.domain.model.WallpaperFraming
 
 /**
  * Wallpaper utility functions for bitmap processing and effects
@@ -189,8 +191,10 @@ fun retrieveBitmap(
     wallpaperUri: Uri,
     width: Int,
     height: Int,
-    scaling: ScalingType = ScalingType.FIT
+    scaling: ScalingType = ScalingType.FIT,
+    framing: WallpaperFraming = WallpaperFraming.Default
 ): Bitmap? {
+    val sanitizedFraming = framing.sanitized()
     // ImageDecoder auto-applies EXIF orientation; info.size is the post-EXIF display size.
     // No separate getImageDimensions() call needed — saves 1-2 stream opens per wallpaper.
     var decodedWithImageDecoder = false
@@ -209,7 +213,7 @@ fun retrieveBitmap(
                     val targetW = (srcWidth * scale).fastRoundToInt()
                     val targetH = (srcHeight * scale).fastRoundToInt()
                     decoder.setTargetSize(targetW, targetH)
-                    if (targetW > width || targetH > height) {
+                    if (!sanitizedFraming.hasCustomFraming && (targetW > width || targetH > height)) {
                         val cropX = ((targetW - width) / 2).coerceAtLeast(0)
                         val cropY = ((targetH - height) / 2).coerceAtLeast(0)
                         decoder.setCrop(android.graphics.Rect(
@@ -281,7 +285,49 @@ fun retrieveBitmap(
     //   FIT   → decoded bitmap may be narrower/shorter than canvas; center on black canvas.
     //   NONE  → original-size image may be smaller than canvas; center on black canvas.
     //   STRETCH → decoder was told the exact canvas size; no-op.
-    return oriented?.let { finalizeToCanvas(it, width, height, scaling) }
+    return oriented?.let { finalizeToCanvas(it, width, height, scaling, sanitizedFraming) }
+}
+
+/**
+ * Extract a representative frame from a video URI and adapt it to the wallpaper canvas.
+ *
+ * Static Android wallpapers must be bitmaps, so video media is represented by a frame in
+ * the normal WallpaperManager path. Full-motion playback belongs to live wallpaper mode.
+ */
+fun retrieveVideoFrameBitmap(
+    context: Context,
+    videoUri: Uri,
+    width: Int,
+    height: Int,
+    scaling: ScalingType,
+    framing: WallpaperFraming = WallpaperFraming.Default,
+    frameTimeUs: Long = 0L
+): Bitmap? {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(context, videoUri)
+        val frame = retriever.getFrameAtTime(
+            frameTimeUs,
+            MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+        ) ?: retriever.getFrameAtTime()
+
+        frame?.let { source ->
+            val mutable = if (source.isMutable) {
+                source
+            } else {
+                source.copy(Bitmap.Config.ARGB_8888, true).also { source.recycle() }
+            }
+            finalizeToCanvas(mutable, width, height, scaling, framing.sanitized())
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to extract video frame from $videoUri", e)
+        null
+    } finally {
+        try {
+            retriever.release()
+        } catch (_: Exception) {
+        }
+    }
 }
 
 /**
@@ -295,9 +341,20 @@ fun retrieveBitmap(
  * - NONE:    the source is at most canvas-sized (possibly smaller).
  *            Draw it centered on a black [canvasW]×[canvasH] bitmap.
  */
-private fun finalizeToCanvas(source: Bitmap, canvasW: Int, canvasH: Int, scaling: ScalingType): Bitmap {
+private fun finalizeToCanvas(
+    source: Bitmap,
+    canvasW: Int,
+    canvasH: Int,
+    scaling: ScalingType,
+    framing: WallpaperFraming = WallpaperFraming.Default
+): Bitmap {
     val sw = source.width
     val sh = source.height
+
+    val sanitizedFraming = framing.sanitized()
+    if (sanitizedFraming.hasCustomFraming) {
+        return compositeWithFraming(source, canvasW, canvasH, scaling, sanitizedFraming)
+    }
 
     return when (scaling) {
         ScalingType.FILL -> {
@@ -344,6 +401,50 @@ private fun compositeCenter(source: Bitmap, canvasW: Int, canvasH: Int): Bitmap 
     val offsetX = ((canvasW - source.width) / 2f).coerceAtLeast(0f)
     val offsetY = ((canvasH - source.height) / 2f).coerceAtLeast(0f)
     c.drawBitmap(source, offsetX, offsetY, null)
+    source.recycle()
+    return canvas
+}
+
+private fun compositeWithFraming(
+    source: Bitmap,
+    canvasW: Int,
+    canvasH: Int,
+    scaling: ScalingType,
+    framing: WallpaperFraming
+): Bitmap {
+    val canvas = Bitmap.createBitmap(canvasW, canvasH, Bitmap.Config.ARGB_8888)
+    val c = Canvas(canvas)
+    c.drawColor(Color.BLACK)
+
+    val baseScale = when (scaling) {
+        ScalingType.FILL -> maxOf(canvasW.toFloat() / source.width, canvasH.toFloat() / source.height)
+        ScalingType.FIT -> minOf(canvasW.toFloat() / source.width, canvasH.toFloat() / source.height)
+        ScalingType.STRETCH -> {
+            val translationX = framing.offsetX * canvasW
+            val translationY = framing.offsetY * canvasH
+            val extraW = canvasW * (framing.scale - 1f) / 2f
+            val extraH = canvasH * (framing.scale - 1f) / 2f
+            val dst = android.graphics.RectF(
+                translationX - extraW,
+                translationY - extraH,
+                canvasW + translationX + extraW,
+                canvasH + translationY + extraH
+            )
+            c.drawBitmap(source, null, dst, Paint(Paint.FILTER_BITMAP_FLAG))
+            source.recycle()
+            return canvas
+        }
+        ScalingType.NONE -> 1f
+    }
+
+    val scale = baseScale * framing.scale
+    val scaledW = source.width * scale
+    val scaledH = source.height * scale
+    val left = (canvasW - scaledW) / 2f + framing.offsetX * canvasW
+    val top = (canvasH - scaledH) / 2f + framing.offsetY * canvasH
+
+    val dst = android.graphics.RectF(left, top, left + scaledW, top + scaledH)
+    c.drawBitmap(source, null, dst, Paint(Paint.FILTER_BITMAP_FLAG))
     source.recycle()
     return canvas
 }
@@ -866,6 +967,7 @@ fun Uri.detectMediaType(context: Context): WallpaperMediaType? {
         if (mimeType != null) {
             return when {
                 mimeType.startsWith("image/") -> WallpaperMediaType.IMAGE
+                mimeType.startsWith("video/") -> WallpaperMediaType.VIDEO
                 else -> null
             }
         }
@@ -887,6 +989,7 @@ fun isPaperizeLiveWallpaperActive(context: Context): Boolean {
         // If we are checking from within the service itself (e.g. preview mode), we are active
         if (context is com.anthonyla.paperize.service.livewallpaper.PaperizeLiveWallpaperService) {
             Log.d(TAG, "isPaperizeLiveWallpaperActive: called from service context, returning true")
+            LiveWallpaperStatusManager.markEngineSeen(context)
             return true
         }
 
@@ -895,8 +998,9 @@ fun isPaperizeLiveWallpaperActive(context: Context): Boolean {
 
         // If wallpaperInfo is null, user has a static wallpaper (not a live wallpaper)
         if (wallpaperInfo == null) {
-            Log.d(TAG, "isPaperizeLiveWallpaperActive: wallpaperInfo is null (static wallpaper), returning false")
-            return false
+            val recentlySeen = LiveWallpaperStatusManager.wasEngineSeenRecently(context)
+            Log.d(TAG, "isPaperizeLiveWallpaperActive: wallpaperInfo is null, recentlySeen=$recentlySeen")
+            return recentlySeen
         }
 
         // Check if the service component matches Paperize live wallpaper
@@ -905,11 +1009,14 @@ fun isPaperizeLiveWallpaperActive(context: Context): Boolean {
             "com.anthonyla.paperize.service.livewallpaper.PaperizeLiveWallpaperService"
         )
         val isPaperize = wallpaperInfo.component == expectedComponent
+        if (isPaperize) {
+            LiveWallpaperStatusManager.markEngineSeen(context)
+        }
 
         Log.d(TAG, "isPaperizeLiveWallpaperActive: current=${wallpaperInfo.component}, expected=$expectedComponent, match=$isPaperize")
-        isPaperize
+        isPaperize || LiveWallpaperStatusManager.wasEngineSeenRecently(context)
     } catch (e: Exception) {
         Log.e(TAG, "Error checking live wallpaper status", e)
-        false
+        LiveWallpaperStatusManager.wasEngineSeenRecently(context)
     }
 }

@@ -53,4 +53,8 @@ data class WallpaperEntity(
     val addedAt: Long = System.currentTimeMillis(),
 
     val mediaType: WallpaperMediaType = WallpaperMediaType.IMAGE,
+
+    val framingScale: Float = 1f,
+    val framingOffsetX: Float = 0f,
+    val framingOffsetY: Float = 0f,
 )

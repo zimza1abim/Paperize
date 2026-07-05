@@ -82,6 +82,7 @@ fun FolderViewScreen(
             ) { wallpaper ->
                 WallpaperItem(
                     wallpaperUri = wallpaper.uri,
+                    mediaType = wallpaper.mediaType,
                     isSelected = false,
                     isSelectionMode = false,
                     onClick = { onNavigateToWallpaperView(wallpaper.uri, wallpaper.fileName) },

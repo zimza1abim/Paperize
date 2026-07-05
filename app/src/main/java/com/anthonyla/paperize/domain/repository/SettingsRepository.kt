@@ -3,6 +3,7 @@ package com.anthonyla.paperize.domain.repository
 import com.anthonyla.paperize.core.WallpaperMode
 import com.anthonyla.paperize.domain.model.AppSettings
 import com.anthonyla.paperize.domain.model.ScheduleSettings
+import com.anthonyla.paperize.domain.model.WallpaperProfileSnapshot
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -54,6 +55,16 @@ interface SettingsRepository {
      * Update schedule settings
      */
     suspend fun updateScheduleSettings(settings: ScheduleSettings)
+
+    /**
+     * Get a saved automation profile snapshot.
+     */
+    suspend fun getWallpaperProfile(profileId: Int): WallpaperProfileSnapshot?
+
+    /**
+     * Save the current mode/settings snapshot for automation.
+     */
+    suspend fun saveWallpaperProfile(profile: WallpaperProfileSnapshot)
 
     /**
      * Clear all settings
@@ -111,3 +122,4 @@ interface SettingsRepository {
      */
     suspend fun updateEnableChanger(enabled: Boolean)
 }
+

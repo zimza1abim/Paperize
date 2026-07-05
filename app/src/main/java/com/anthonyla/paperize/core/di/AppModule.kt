@@ -3,6 +3,7 @@ package com.anthonyla.paperize.core.di
 import android.app.Application
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
 import com.anthonyla.paperize.core.constants.Constants
 import com.anthonyla.paperize.data.database.PaperizeDatabase
 import com.anthonyla.paperize.data.database.dao.AlbumDao
@@ -22,6 +23,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import androidx.sqlite.db.SupportSQLiteDatabase
 import javax.inject.Singleton
 
 /**
@@ -32,6 +34,13 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE wallpapers ADD COLUMN framingScale REAL NOT NULL DEFAULT 1.0")
+            db.execSQL("ALTER TABLE wallpapers ADD COLUMN framingOffsetX REAL NOT NULL DEFAULT 0.0")
+            db.execSQL("ALTER TABLE wallpapers ADD COLUMN framingOffsetY REAL NOT NULL DEFAULT 0.0")
+        }
+    }
 
     /**
      * Provide Room database
@@ -44,6 +53,7 @@ object AppModule {
             PaperizeDatabase::class.java,
             Constants.DATABASE_NAME
         )
+            .addMigrations(MIGRATION_4_5)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }

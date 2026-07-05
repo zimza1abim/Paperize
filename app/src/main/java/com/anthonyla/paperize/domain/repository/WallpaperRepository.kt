@@ -31,6 +31,11 @@ interface WallpaperRepository {
     suspend fun getWallpaperById(wallpaperId: String): Wallpaper?
 
     /**
+     * Get wallpaper by URI
+     */
+    suspend fun getWallpaperByUri(uri: String): Wallpaper?
+
+    /**
      * Add wallpaper
      */
     suspend fun addWallpaper(wallpaper: Wallpaper): Result<Unit>
@@ -82,7 +87,8 @@ interface WallpaperRepository {
     suspend fun buildWallpaperQueue(
         albumId: String,
         screenType: ScreenType,
-        shuffle: Boolean = false
+        shuffle: Boolean = false,
+        folderId: String? = null
     ): Result<Unit>
 
     /**

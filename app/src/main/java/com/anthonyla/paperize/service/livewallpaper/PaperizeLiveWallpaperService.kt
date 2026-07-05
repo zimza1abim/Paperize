@@ -11,14 +11,17 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import com.anthonyla.paperize.core.ScreenType
+import com.anthonyla.paperize.core.WallpaperMediaType
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.repository.WallpaperRepository
 import com.anthonyla.paperize.service.livewallpaper.gl.GLWallpaperService
+import com.anthonyla.paperize.service.livewallpaper.renderer.AnimatedImageUriLoader
 import com.anthonyla.paperize.service.livewallpaper.renderer.ContentUriImageLoader
 import com.anthonyla.paperize.service.livewallpaper.renderer.EmptyImageLoader
 import com.anthonyla.paperize.service.livewallpaper.renderer.ImageLoader
 import com.anthonyla.paperize.service.livewallpaper.renderer.PaperizeWallpaperRenderer
 import com.anthonyla.paperize.service.livewallpaper.renderer.PaperizeRenderController
+import com.anthonyla.paperize.service.livewallpaper.renderer.VideoUriImageLoader
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.AndroidEntryPoint
@@ -39,11 +42,14 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.anthonyla.paperize.core.constants.Constants
+import com.anthonyla.paperize.core.util.LiveWallpaperStatusManager
 import com.anthonyla.paperize.core.util.isValid
 import com.anthonyla.paperize.domain.model.Wallpaper
 import com.anthonyla.paperize.service.livewallpaper.gl.GLCompatibility
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.os.UserManager
 import android.widget.Toast
 import com.anthonyla.paperize.R
 
@@ -59,6 +65,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
     companion object {
         private const val TAG = "PaperizeLiveWallpaper"
+        private const val SCREEN_ON_CHANGE_DEBOUNCE_MS = 800L
     }
 
     private val lifecycleRegistry: LifecycleRegistry = LifecycleRegistry(this)
@@ -68,6 +75,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
     override fun onCreate() {
         super.onCreate()
+        LiveWallpaperStatusManager.markEngineSeen(applicationContext)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
     }
 
@@ -86,8 +94,8 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         PaperizeRenderController.Callbacks,
         PaperizeWallpaperRenderer.Callbacks {
 
-        private lateinit var settingsRepository: SettingsRepository
-        private lateinit var wallpaperRepository: WallpaperRepository
+        private var settingsRepository: SettingsRepository? = null
+        private var wallpaperRepository: WallpaperRepository? = null
 
         private val lifecycleRegistry: LifecycleRegistry = LifecycleRegistry(this)
         private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -103,6 +111,8 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         private var currentAlbumId: String? = null
         private var hasShownParallaxWarning = false
+        private var reapplyCurrentWallpaperOnce = false
+        private var settingsObserverStarted = false
 
         private val gestureDetector = GestureDetector(
             this@PaperizeLiveWallpaperService,
@@ -116,17 +126,28 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
         private val reloadReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == Constants.ACTION_RELOAD_WALLPAPER) {
-                    Log.d(TAG, "Received reload broadcast")
-                    renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
+                when (intent?.action) {
+                    Constants.ACTION_RELOAD_WALLPAPER -> {
+                        Log.d(TAG, "Received reload broadcast")
+                        renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
+                    }
+                    Constants.ACTION_REAPPLY_CURRENT_WALLPAPER -> {
+                        Log.d(TAG, "Received reapply-current broadcast")
+                        reapplyCurrentWallpaperOnce = true
+                        renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
+                    }
                 }
             }
         }
 
-        private val screenOffReceiver = object : BroadcastReceiver() {
+        private var lastScreenOnChangeAt = 0L
+
+        private val screenEventReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
-                    handleScreenOff()
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> handleScreenOff()
+                    Intent.ACTION_SCREEN_ON -> handleScreenOnChange("screen-on-broadcast")
+                    Intent.ACTION_USER_UNLOCKED -> startLiveWallpaperAfterUnlock()
                 }
             }
         }
@@ -134,6 +155,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
             Log.d(TAG, "Engine created")
+            LiveWallpaperStatusManager.markEngineSeen(applicationContext)
 
             // Enable offset notifications to receive scroll events
             setOffsetNotificationsEnabled(true)
@@ -143,19 +165,20 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
             savedStateRegistryController.performRestore(null)
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-
-            val entryPoint = EntryPointAccessors.fromApplication(
-                applicationContext,
-                PaperizeLiveWallpaperEntryPoint::class.java
-            )
-            settingsRepository = entryPoint.settingsRepository()
-            wallpaperRepository = entryPoint.wallpaperRepository()
-
-            renderer = PaperizeWallpaperRenderer(applicationContext, this)
+renderer = PaperizeWallpaperRenderer(applicationContext, this)
             renderController = object : PaperizeRenderController(renderer, this@PaperizeLiveWallpaperEngine, engineScope) {
                 override suspend fun openDownloadedCurrentArtwork(): ImageLoader = withContext(Dispatchers.IO) {
+                    if (!isUserUnlocked()) {
+                        Log.d(TAG, "User locked; delaying live wallpaper media load")
+                        return@withContext EmptyImageLoader
+                    }
+
+                    val repositories = ensureRepositories()
+                    val settingsRepository = repositories.first
+                    val wallpaperRepository = repositories.second
+
                     val mode = settingsRepository.getWallpaperMode()
-                    val settings = settingsRepository.getScheduleSettings()
+                    val settings = ensureRepositories().first.getScheduleSettings()
                     
                     // Live Wallpaper only operates in LIVE mode
                     // In STATIC mode, the static wallpaper worker handles HOME/LOCK screens separately
@@ -171,10 +194,20 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
                         return@withContext EmptyImageLoader
                     }
 
+                    val reapplyCurrent = reapplyCurrentWallpaperOnce
+                    reapplyCurrentWallpaperOnce = false
+                    if (reapplyCurrent) {
+                        val current = wallpaperRepository.getCurrentWallpaper(albumId, ScreenType.LIVE)
+                        if (current != null && current.uri.toUri().isValid(contentResolver)) {
+                            return@withContext createImageLoader(current, settings.liveScalingType)
+                        }
+                        Log.d(TAG, "No current live wallpaper to reapply; falling back to next queue item")
+                    }
+
                     // Check if queue exists, build it if empty
                     val queueCheck = wallpaperRepository.getNextWallpaperInQueue(albumId, ScreenType.LIVE)
                     if (queueCheck == null) {
-                        wallpaperRepository.buildWallpaperQueue(albumId, ScreenType.LIVE, settings.shuffleEnabled)
+                        wallpaperRepository.buildWallpaperQueue(albumId, ScreenType.LIVE, settings.shuffleEnabled, settings.liveFolderId)
                     }
                     
                     var wallpaper: Wallpaper? = null
@@ -193,7 +226,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
                             }
 
                             // Rebuild queue
-                            wallpaperRepository.buildWallpaperQueue(albumId, ScreenType.LIVE, settings.shuffleEnabled)
+                            wallpaperRepository.buildWallpaperQueue(albumId, ScreenType.LIVE, settings.shuffleEnabled, settings.liveFolderId)
                             continue
                         }
 
@@ -217,12 +250,12 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
                     // Peek at queue to see if it needs refilling (not dequeuing, just checking)
                     val nextInQueue = wallpaperRepository.getNextWallpaperInQueue(albumId, ScreenType.LIVE)
                     if (nextInQueue == null) {
-                        wallpaperRepository.buildWallpaperQueue(albumId, ScreenType.LIVE, settings.shuffleEnabled)
+                        wallpaperRepository.buildWallpaperQueue(albumId, ScreenType.LIVE, settings.shuffleEnabled, settings.liveFolderId)
                     }
 
                     try {
-                        val uri = wallpaper.uri.toUri()
-                        ContentUriImageLoader(contentResolver, uri, settings.liveScalingType)
+                        wallpaperRepository.setCurrentWallpaper(albumId, ScreenType.LIVE, wallpaper.id)
+                        createImageLoader(wallpaper, settings.liveScalingType)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error creating image loader", e)
                         EmptyImageLoader
@@ -239,15 +272,17 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
             lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-
-            // Trigger initial load
-            renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
-
-            // Observe settings changes
-            observeSettings()
+            if (isUserUnlocked()) {
+                startLiveWallpaperAfterUnlock()
+            } else {
+                Log.d(TAG, "Engine created before user unlock; keeping renderer alive with empty frame")
+            }
 
             // Register broadcast receiver for reload
-            val filter = IntentFilter(Constants.ACTION_RELOAD_WALLPAPER)
+            val filter = IntentFilter().apply {
+                addAction(Constants.ACTION_RELOAD_WALLPAPER)
+                addAction(Constants.ACTION_REAPPLY_CURRENT_WALLPAPER)
+            }
             ContextCompat.registerReceiver(
                 applicationContext,
                 reloadReceiver,
@@ -255,21 +290,102 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
 
-            // Register screen-off receiver for wallpaper change on screen off
-            val screenOffFilter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+            // Register screen event receiver for wallpaper changes on screen off/on.
+            val screenEventFilter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_UNLOCKED)
+            }
             ContextCompat.registerReceiver(
                 applicationContext,
-                screenOffReceiver,
-                screenOffFilter,
+                screenEventReceiver,
+                screenEventFilter,
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
         }
 
+        private fun isAnimatedImageCandidate(uri: android.net.Uri): Boolean {
+            val mimeType = try {
+                contentResolver.getType(uri)
+            } catch (_: Exception) {
+                null
+            }
+            if (mimeType == "image/gif" || mimeType == "image/webp") {
+                return true
+            }
+
+            val path = uri.toString().substringBefore('?').lowercase()
+            return path.endsWith(".gif") || path.endsWith(".webp")
+        }
+
+        private fun createImageLoader(
+            wallpaper: Wallpaper,
+            scalingType: com.anthonyla.paperize.core.ScalingType
+        ): ImageLoader {
+            val uri = wallpaper.uri.toUri()
+            return when (wallpaper.mediaType) {
+                WallpaperMediaType.VIDEO -> VideoUriImageLoader(
+                    applicationContext,
+                    uri,
+                    scalingType,
+                    wallpaper.framing
+                )
+                WallpaperMediaType.IMAGE -> {
+                    if (isAnimatedImageCandidate(uri)) {
+                        AnimatedImageUriLoader(
+                            applicationContext,
+                            uri,
+                            scalingType,
+                            wallpaper.framing
+                        )
+                    } else {
+                        ContentUriImageLoader(
+                            contentResolver,
+                            uri,
+                            scalingType,
+                            wallpaper.framing
+                        )
+                    }
+                }
+            }
+        }
+
+        private fun isUserUnlocked(): Boolean {
+            return applicationContext.getSystemService(UserManager::class.java)?.isUserUnlocked != false
+        }
+
+        private fun ensureRepositories(): Pair<SettingsRepository, WallpaperRepository> {
+            val currentSettings = settingsRepository
+            val currentWallpapers = wallpaperRepository
+            if (currentSettings != null && currentWallpapers != null) {
+                return currentSettings to currentWallpapers
+            }
+
+            val entryPoint = EntryPointAccessors.fromApplication(
+                applicationContext,
+                PaperizeLiveWallpaperEntryPoint::class.java
+            )
+            val initializedSettings = entryPoint.settingsRepository()
+            val initializedWallpapers = entryPoint.wallpaperRepository()
+            settingsRepository = initializedSettings
+            wallpaperRepository = initializedWallpapers
+            return initializedSettings to initializedWallpapers
+        }
+
+        private fun startLiveWallpaperAfterUnlock() {
+            if (!isUserUnlocked()) return
+            LiveWallpaperStatusManager.markEngineSeen(applicationContext)
+            renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
+            observeSettings()
+        }
+
         private fun observeSettings() {
+            if (settingsObserverStarted) return
+            settingsObserverStarted = true
             engineScope.launch {
                 combine(
-                    settingsRepository.getScheduleSettingsFlow(),
-                    settingsRepository.getWallpaperModeFlow()
+                    ensureRepositories().first.getScheduleSettingsFlow(),
+                    ensureRepositories().first.getWallpaperModeFlow()
                 ) { settings, mode ->
                     Pair(settings, mode)
                 }.catch { e ->
@@ -287,7 +403,6 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
                     renderer.updateEffects(effects)
                     renderer.updateScalingType(scalingType)
-                    renderer.updateAdaptiveBrightness(settings.adaptiveBrightness)
                     
                     // Show Toast warning if parallax is enabled but device has offset issues
                     if (effects.enableParallax && !hasShownParallaxWarning && GLCompatibility.shouldWarnAboutParallax()) {
@@ -319,6 +434,22 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         override fun onVisibilityChanged(visible: Boolean) {
             renderController.visible = visible
             super.onVisibilityChanged(visible)
+            if (isPreview) {
+                Log.d(TAG, "Skipping visibility-triggered change in preview")
+                return
+            }
+
+            if (visible) {
+                LiveWallpaperStatusManager.markEngineSeen(applicationContext)
+                renderer.setPlaybackVisible(true)
+                if (renderController.consumePendingReloadOnVisibleFlag()) {
+                    Log.d(TAG, "Screen on change skipped because a pending reload was consumed")
+                } else {
+                    handleScreenOnChange("visibility")
+                }
+            } else {
+                renderer.setPlaybackVisible(false)
+            }
         }
 
         override fun onOffsetsChanged(
@@ -350,9 +481,9 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
                 Log.e(TAG, "Error unregistering reload receiver", e)
             }
             try {
-                applicationContext.unregisterReceiver(screenOffReceiver)
+                applicationContext.unregisterReceiver(screenEventReceiver)
             } catch (e: Exception) {
-                Log.e(TAG, "Error unregistering screen-off receiver", e)
+                Log.e(TAG, "Error unregistering screen event receiver", e)
             }
 
             // Cleanup renderer resources on GL thread
@@ -373,7 +504,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
 
         private fun handleDoubleTap() {
             engineScope.launch {
-                val settings = settingsRepository.getScheduleSettings()
+                val settings = ensureRepositories().first.getScheduleSettings()
                 
                 // Always check liveEffects since double-tap is only available in live wallpaper mode
                 val doubleTapEnabled = settings.liveEffects.enableDoubleTap
@@ -385,13 +516,41 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         }
 
         private fun handleScreenOff() {
+            if (!isUserUnlocked()) return
             engineScope.launch {
-                val settings = settingsRepository.getScheduleSettings()
+                val settings = ensureRepositories().first.getScheduleSettings()
                 if (settings.liveEffects.enableChangeOnScreenOff) {
                     Log.d(TAG, "Screen off - changing wallpaper")
                     // Use forceReload to bypass visibility check and load while screen is off
                     renderController.forceReloadCurrentArtwork()
                 }
+            }
+        }
+
+        private fun handleScreenOnChange(trigger: String) {
+            if (isPreview) return
+
+            if (!isUserUnlocked()) return
+
+            engineScope.launch {
+                val settings = ensureRepositories().first.getScheduleSettings()
+                if (!settings.liveEffects.enableChangeOnScreenOn) return@launch
+
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastScreenOnChangeAt < SCREEN_ON_CHANGE_DEBOUNCE_MS) {
+                    Log.d(TAG, "Screen on change ignored due to debounce")
+                    return@launch
+                }
+
+                if (!surfaceHolder.surface.isValid) {
+                    Log.d(TAG, "Screen on change ignored because surface is not valid")
+                    return@launch
+                }
+
+                lastScreenOnChangeAt = now
+
+                Log.d(TAG, "Screen on - changing wallpaper ($trigger)")
+                renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
             }
         }
     }

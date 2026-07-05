@@ -22,8 +22,10 @@ data class WallpaperEffects(
     // Interactive effects (live wallpaper mode only)
     val enableDoubleTap: Boolean = false,
     val enableChangeOnScreenOff: Boolean = false,
+    val enableChangeOnScreenOn: Boolean = false,
     val enableParallax: Boolean = false,
-    val parallaxIntensity: Int = Constants.DEFAULT_PARALLAX_INTENSITY
+    val parallaxIntensity: Int = Constants.DEFAULT_PARALLAX_INTENSITY,
+    val crossfadeDurationMs: Int = Constants.CROSSFADE_DURATION_MS
 ) {
     /**
      * Check if any effects are applied
@@ -42,7 +44,11 @@ data class WallpaperEffects(
         blurPercentage = blurPercentage.coerceIn(0, 100),
         vignettePercentage = vignettePercentage.coerceIn(0, 100),
         grayscalePercentage = grayscalePercentage.coerceIn(0, 100),
-        parallaxIntensity = parallaxIntensity.coerceIn(0, 100)
+        parallaxIntensity = parallaxIntensity.coerceIn(0, 100),
+        crossfadeDurationMs = crossfadeDurationMs.coerceIn(
+            Constants.MIN_CROSSFADE_DURATION_MS,
+            Constants.MAX_CROSSFADE_DURATION_MS
+        )
     )
 
     companion object {

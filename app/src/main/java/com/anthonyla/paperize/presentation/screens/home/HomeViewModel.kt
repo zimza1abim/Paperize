@@ -7,9 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.anthonyla.paperize.core.ScreenType
 import com.anthonyla.paperize.core.constants.Constants
+import com.anthonyla.paperize.core.util.LiveWallpaperStatusManager
 import com.anthonyla.paperize.core.util.isPaperizeLiveWallpaperActive
 import com.anthonyla.paperize.domain.model.AlbumSummary
 import com.anthonyla.paperize.domain.model.ScheduleSettings
+import com.anthonyla.paperize.domain.repository.AlbumRepository
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.usecase.CreateAlbumUseCase
 import com.anthonyla.paperize.domain.usecase.GetAlbumSummariesUseCase
@@ -34,6 +36,7 @@ class HomeViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     getAlbumSummariesUseCase: GetAlbumSummariesUseCase,
     private val createAlbumUseCase: CreateAlbumUseCase,
+    private val albumRepository: AlbumRepository,
     private val settingsRepository: SettingsRepository,
     private val wallpaperScheduler: WallpaperScheduler,
     private val wallpaperRepository: com.anthonyla.paperize.domain.repository.WallpaperRepository
@@ -41,6 +44,7 @@ class HomeViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "HomeViewModel"
+        private const val LIVE_WALLPAPER_RECHECK_DELAY_MS = 1_200L
     }
 
     init {
@@ -79,37 +83,44 @@ class HomeViewModel @Inject constructor(
     // Show prompt to select live wallpaper when enabling changer in LIVE mode
     private val _showLiveWallpaperPrompt = MutableStateFlow(false)
     val showLiveWallpaperPrompt: StateFlow<Boolean> = _showLiveWallpaperPrompt
+    private var liveWallpaperPromptJob: Job? = null
 
     fun dismissLiveWallpaperPrompt() {
+        liveWallpaperPromptJob?.cancel()
         _showLiveWallpaperPrompt.value = false
     }
 
     /**
      * Check if Paperize live wallpaper is still active on app startup.
-     * If the user was in LIVE mode with an album selected but Paperize is no longer
-     * the active live wallpaper (e.g., user switched to a different wallpaper),
-     * clear the live album selection and disable the changer.
+     * Keep saved live-mode settings intact even if Android reports wallpaperInfo late
+     * after reboot; Samsung can attach the live wallpaper engine after the app starts.
      */
     private fun checkLiveWallpaperStatus() {
         viewModelScope.launch {
             val mode = settingsRepository.getWallpaperMode()
             val settings = settingsRepository.getScheduleSettings()
-            
-            // Only check if we're in LIVE mode and have an album selected
-            if (mode == com.anthonyla.paperize.core.WallpaperMode.LIVE && 
-                settings.liveAlbumId != null && 
-                settings.enableChanger) {
-                
-                val isActive = isPaperizeLiveWallpaperActive(context)
-                Log.d(TAG, "Startup check: LIVE mode with album selected, isPaperizeLiveWallpaperActive=$isActive")
-                
-                if (!isActive) {
-                    Log.w(TAG, "Paperize live wallpaper was replaced/disabled - clearing live album selection")
-                    // Clear the live album selection and disable changer
-                    settingsRepository.updateLiveAlbumId(null)
-                    settingsRepository.updateEnableChanger(false)
-                    wallpaperScheduler.cancelAllWallpaperChanges()
-                }
+
+            if (mode != com.anthonyla.paperize.core.WallpaperMode.LIVE ||
+                settings.liveAlbumId == null ||
+                !settings.enableChanger) {
+                return@launch
+            }
+
+            if (LiveWallpaperStatusManager.isWithinBootGracePeriod()) {
+                Log.d(TAG, "Startup check skipped during boot grace period; preserving live wallpaper settings")
+                scheduleAlarms(settings, onlyIfNotScheduled = true)
+                return@launch
+            }
+
+            val isActive = isPaperizeLiveWallpaperActive(context) || recheckLiveWallpaperActive()
+            Log.d(TAG, "Startup check: LIVE mode with album selected, confirmedActive=$isActive")
+
+            if (!isActive) {
+                Log.w(TAG, "Paperize live wallpaper is not confirmed active; preserving settings and showing selection prompt")
+                scheduleAlarms(settings, onlyIfNotScheduled = true)
+                maybeShowLiveWallpaperPrompt("startupCheck")
+            } else {
+                scheduleAlarms(settings, onlyIfNotScheduled = true)
             }
         }
     }
@@ -120,6 +131,18 @@ class HomeViewModel @Inject constructor(
                 is com.anthonyla.paperize.core.Result.Success -> { /* Success */ }
                 is com.anthonyla.paperize.core.Result.Error -> { 
                     Log.e(TAG, "Error creating album", result.exception)
+                }
+                is com.anthonyla.paperize.core.Result.Loading -> { /* Loading state not used */ }
+            }
+        }
+    }
+
+    fun renameAlbum(albumId: String, name: String) {
+        viewModelScope.launch {
+            when (val result = albumRepository.updateAlbumName(albumId, name)) {
+                is com.anthonyla.paperize.core.Result.Success -> { /* Success */ }
+                is com.anthonyla.paperize.core.Result.Error -> {
+                    Log.e(TAG, "Error renaming album", result.exception)
                 }
                 is com.anthonyla.paperize.core.Result.Loading -> { /* Loading state not used */ }
             }
@@ -319,11 +342,7 @@ class HomeViewModel @Inject constructor(
 
                     // Show live wallpaper selection prompt if in LIVE mode and Paperize is NOT already active
                     if (wallpaperMode.value == com.anthonyla.paperize.core.WallpaperMode.LIVE) {
-                        val isActive = isPaperizeLiveWallpaperActive(context)
-                        Log.d(TAG, "toggleWallpaperChanger: LIVE mode, isPaperizeLiveWallpaperActive=$isActive")
-                        if (!isActive) {
-                            _showLiveWallpaperPrompt.value = true
-                        }
+                        maybeShowLiveWallpaperPrompt("toggleWallpaperChanger")
                     }
                 } else {
                     // Not all required albums selected - cancel any existing schedules
@@ -391,18 +410,14 @@ class HomeViewModel @Inject constructor(
                 // Show live wallpaper selection prompt if in LIVE mode, changer was just enabled, and Paperize is NOT already active
                 if (wallpaperMode.value == com.anthonyla.paperize.core.WallpaperMode.LIVE &&
                     !currentSettings.enableChanger && validated.enableChanger) {
-                    val isActive = isPaperizeLiveWallpaperActive(context)
-                    Log.d(TAG, "updateScheduleSettings: LIVE mode, changer just enabled, isPaperizeLiveWallpaperActive=$isActive")
-                    if (!isActive) {
-                        _showLiveWallpaperPrompt.value = true
-                    }
+                    maybeShowLiveWallpaperPrompt("updateScheduleSettings")
                 }
             } else if (validated.enableChanger && !hasRequiredAlbums) {
                 // Changer enabled but required albums not selected - cancel existing schedules
                 wallpaperScheduler.cancelAllWallpaperChanges()
             }
 
-            // Handle display changes (scaling, effects, adaptive brightness)
+            // Handle display changes (scaling)
             // Reapply current wallpaper immediately to show the effect
             // In LIVE mode, skip immediate wallpaper changes - the live wallpaper service handles it
             if (validated.enableChanger && hasRequiredAlbums && displayChanged &&
@@ -421,6 +436,32 @@ class HomeViewModel @Inject constructor(
     }
 
     private var pendingSettingsJob: Job? = null
+
+    private fun maybeShowLiveWallpaperPrompt(reason: String) {
+        liveWallpaperPromptJob?.cancel()
+        liveWallpaperPromptJob = viewModelScope.launch {
+            if (LiveWallpaperStatusManager.isWithinBootGracePeriod()) {
+                Log.d(TAG, "$reason: prompt suppressed during boot grace period")
+                _showLiveWallpaperPrompt.value = false
+                return@launch
+            }
+
+            if (isPaperizeLiveWallpaperActive(context)) {
+                Log.d(TAG, "$reason: Paperize live wallpaper already active; prompt suppressed")
+                _showLiveWallpaperPrompt.value = false
+                return@launch
+            }
+
+            val activeAfterRecheck = recheckLiveWallpaperActive()
+            Log.d(TAG, "$reason: activeAfterRecheck=$activeAfterRecheck")
+            _showLiveWallpaperPrompt.value = !activeAfterRecheck
+        }
+    }
+
+    private suspend fun recheckLiveWallpaperActive(): Boolean {
+        delay(LIVE_WALLPAPER_RECHECK_DELAY_MS)
+        return isPaperizeLiveWallpaperActive(context)
+    }
 
     fun updateScheduleSettingsDebounced(settings: ScheduleSettings) {
         pendingSettingsJob?.cancel()

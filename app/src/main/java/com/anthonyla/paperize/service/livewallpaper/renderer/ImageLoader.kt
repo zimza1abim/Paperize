@@ -1,12 +1,15 @@
 package com.anthonyla.paperize.service.livewallpaper.renderer
 
 import android.content.ContentResolver
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.Rect
 import android.net.Uri
 import android.util.Log
 import androidx.compose.ui.util.fastRoundToInt
 import com.anthonyla.paperize.core.ScalingType
+import com.anthonyla.paperize.domain.model.WallpaperFraming
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -37,6 +40,35 @@ object EmptyImageLoader : ImageLoader {
 }
 
 /**
+ * Video source for live wallpaper rendering.
+ *
+ * The bitmap loader method intentionally returns null because video frames are decoded by
+ * MediaPlayer directly into a SurfaceTexture owned by the GL renderer.
+ */
+class VideoUriImageLoader(
+    val context: Context,
+    val uri: Uri,
+    val scalingType: ScalingType = ScalingType.FILL,
+    val framing: WallpaperFraming = WallpaperFraming.Default
+) : ImageLoader {
+    override suspend fun load(targetWidth: Int, targetHeight: Int): Bitmap? = null
+}
+
+/**
+ * Animated image source for live wallpaper rendering.
+ *
+ * GIF and animated WebP need Drawable-based decoding; bitmap decoding only returns a still frame.
+ */
+class AnimatedImageUriLoader(
+    val context: Context,
+    val uri: Uri,
+    val scalingType: ScalingType = ScalingType.FILL,
+    val framing: WallpaperFraming = WallpaperFraming.Default
+) : ImageLoader {
+    override suspend fun load(targetWidth: Int, targetHeight: Int): Bitmap? = null
+}
+
+/**
  * Image loader for Android content URIs.
  * Loads images from the MediaStore or other content providers.
  *
@@ -47,7 +79,8 @@ object EmptyImageLoader : ImageLoader {
 class ContentUriImageLoader(
     private val contentResolver: ContentResolver,
     private val uri: Uri,
-    private val scalingType: ScalingType = ScalingType.FILL
+    private val scalingType: ScalingType = ScalingType.FILL,
+    val framing: WallpaperFraming = WallpaperFraming.Default
 ) : ImageLoader {
 
     companion object {
@@ -98,6 +131,15 @@ class ContentUriImageLoader(
                             "(scaling: $scalingType, target: ${targetWidth}x${targetHeight})")
 
                     decoder.setTargetSize(decodeWidth, decodeHeight)
+                    if (
+                        scalingType == ScalingType.FILL &&
+                        !framing.sanitized().hasCustomFraming &&
+                        (decodeWidth > targetWidth || decodeHeight > targetHeight)
+                    ) {
+                        val cropX = ((decodeWidth - targetWidth) / 2).coerceAtLeast(0)
+                        val cropY = ((decodeHeight - targetHeight) / 2).coerceAtLeast(0)
+                        decoder.setCrop(Rect(cropX, cropY, cropX + targetWidth, cropY + targetHeight))
+                    }
                     decoder.isMutableRequired = false  // Immutable for GPU upload
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 }

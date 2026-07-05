@@ -34,7 +34,7 @@ fun Uri.getFileName(context: Context): String? {
 }
 
 /**
- * Scan a folder URI and return all image file URIs
+ * Scan a folder URI and return all supported wallpaper media file URIs.
  */
 fun Uri.scanFolderForImages(context: Context): List<Uri> {
     val documentFile = DocumentFile.fromTreeUri(context, this) ?: return emptyList()
@@ -48,7 +48,7 @@ fun Uri.scanFolderForImages(context: Context): List<Uri> {
                 file.isDirectory -> scanDirectory(file) // Recursively scan subdirectories
                 file.isFile -> {
                     val ext = file.name?.substringAfterLast('.', "")?.lowercase() ?: ""
-                    if (ext in com.anthonyla.paperize.core.constants.Constants.SUPPORTED_IMAGE_EXTENSIONS) {
+                    if (ext in com.anthonyla.paperize.core.constants.Constants.SUPPORTED_MEDIA_EXTENSIONS) {
                         imageUris.add(file.uri)
                     }
                 }

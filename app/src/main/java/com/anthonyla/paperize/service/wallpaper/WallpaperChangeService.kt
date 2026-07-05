@@ -177,7 +177,7 @@ class WallpaperChangeService : Service() {
                                             if (wallpaperRepository.getNextWallpaperInQueue(
                                                     homeAlbumId, ScreenType.LOCK) == null) {
                                                 wallpaperRepository.buildWallpaperQueue(
-                                                    homeAlbumId, ScreenType.LOCK, settings.shuffleEnabled)
+                                                    homeAlbumId, ScreenType.LOCK, settings.shuffleEnabled, settings.homeFolderId)
                                             }
                                             wallpaperRepository.getAndDequeueWallpaper(
                                                 homeAlbumId, ScreenType.LOCK)

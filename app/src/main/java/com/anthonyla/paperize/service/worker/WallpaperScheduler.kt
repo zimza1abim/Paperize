@@ -4,8 +4,10 @@ import android.content.Context
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
@@ -44,7 +46,8 @@ class WallpaperScheduler @Inject constructor(
      * Schedule periodic wallpaper change
      *
      * @param screenType HOME, LOCK, or BOTH (for synchronized schedules)
-     * @param intervalMinutes Interval between changes (minimum 15 minutes for WorkManager)
+     * @param intervalMinutes Interval between changes. Values below WorkManager's periodic
+     * minimum are scheduled as chained one-time work.
      * @param networkRequired Whether network is required (for future online wallpaper support)
      * @param requireCharging Whether device must be charging
      */
@@ -52,7 +55,8 @@ class WallpaperScheduler @Inject constructor(
         screenType: ScreenType,
         intervalMinutes: Int,
         networkRequired: Boolean = false,
-        requireCharging: Boolean = false
+        requireCharging: Boolean = false,
+        replaceExisting: Boolean = true
     ) {
 
         val adjustedInterval = intervalMinutes.toLong().coerceAtLeast(Constants.MIN_INTERVAL_MINUTES.toLong())
@@ -71,25 +75,43 @@ class WallpaperScheduler @Inject constructor(
             .putString(Constants.EXTRA_SCREEN_TYPE, screenType.name)
             .build()
 
-        // Create periodic work request
-        val workRequest = PeriodicWorkRequestBuilder<WallpaperChangeWorker>(
-            adjustedInterval,
-            TimeUnit.MINUTES
-        )
-            .setConstraints(constraints)
-            .setInputData(inputData)
-            .addTag(getWorkTag(screenType))
-            .build()
+        if (adjustedInterval < Constants.WORK_MANAGER_MIN_PERIODIC_INTERVAL_MINUTES) {
+            val workRequest = OneTimeWorkRequestBuilder<WallpaperChangeWorker>()
+                .setConstraints(constraints)
+                .setInputData(inputData)
+                .setInitialDelay(adjustedInterval, TimeUnit.MINUTES)
+                .addTag(getWorkTag(screenType))
+                .build()
 
-        // Enqueue work with UPDATE policy to update existing work without triggering immediate run
-        // Only runs immediately on first setup when no existing work exists
-        workManager.enqueueUniquePeriodicWork(
-            workName,
-            ExistingPeriodicWorkPolicy.UPDATE,
-            workRequest
-        )
+            if (replaceExisting) {
+                workManager.cancelUniqueWork(workName)
+            }
+            workManager.enqueueUniqueWork(
+                workName,
+                if (replaceExisting) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE,
+                workRequest
+            )
 
-        Log.d(TAG, "Scheduled $screenType wallpaper change every $adjustedInterval minutes")
+            Log.d(TAG, "Scheduled $screenType wallpaper change in $adjustedInterval minutes")
+        } else {
+            val workRequest = PeriodicWorkRequestBuilder<WallpaperChangeWorker>(
+                adjustedInterval,
+                TimeUnit.MINUTES
+            )
+                .setConstraints(constraints)
+                .setInputData(inputData)
+                .addTag(getWorkTag(screenType))
+                .build()
+
+            workManager.cancelUniqueWork(workName)
+            workManager.enqueueUniquePeriodicWork(
+                workName,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                workRequest
+            )
+
+            Log.d(TAG, "Scheduled $screenType wallpaper change every $adjustedInterval minutes")
+        }
     }
 
     /**

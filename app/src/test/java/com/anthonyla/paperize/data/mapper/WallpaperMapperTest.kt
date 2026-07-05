@@ -4,6 +4,7 @@ import com.anthonyla.paperize.core.WallpaperMediaType
 import com.anthonyla.paperize.core.WallpaperSourceType
 import com.anthonyla.paperize.data.database.entities.WallpaperEntity
 import com.anthonyla.paperize.domain.model.Wallpaper
+import com.anthonyla.paperize.domain.model.WallpaperFraming
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -31,6 +32,9 @@ class WallpaperMapperTest {
         assertEquals(entity.sourceType, domain.sourceType)
         assertEquals(entity.addedAt, domain.addedAt)
         assertEquals(entity.mediaType, domain.mediaType)
+        assertEquals(entity.framingScale, domain.framing.scale)
+        assertEquals(entity.framingOffsetX, domain.framing.offsetX)
+        assertEquals(entity.framingOffsetY, domain.framing.offsetY)
     }
 
     @Test
@@ -72,6 +76,9 @@ class WallpaperMapperTest {
         assertEquals(domain.sourceType, entity.sourceType)
         assertEquals(domain.addedAt, entity.addedAt)
         assertEquals(domain.mediaType, entity.mediaType)
+        assertEquals(domain.framing.scale, entity.framingScale)
+        assertEquals(domain.framing.offsetX, entity.framingOffsetX)
+        assertEquals(domain.framing.offsetY, entity.framingOffsetY)
     }
 
     @Test
@@ -143,6 +150,9 @@ class WallpaperMapperTest {
         assertEquals(original.sourceType, converted.sourceType)
         assertEquals(original.addedAt, converted.addedAt)
         assertEquals(original.mediaType, converted.mediaType)
+        assertEquals(original.framingScale, converted.framingScale)
+        assertEquals(original.framingOffsetX, converted.framingOffsetX)
+        assertEquals(original.framingOffsetY, converted.framingOffsetY)
     }
 
     // ============================================================
@@ -163,7 +173,10 @@ class WallpaperMapperTest {
         displayOrder = 0,
         sourceType = sourceType,
         addedAt = 2000L,
-        mediaType = WallpaperMediaType.IMAGE
+        mediaType = WallpaperMediaType.IMAGE,
+        framingScale = 1.35f,
+        framingOffsetX = 0.25f,
+        framingOffsetY = -0.4f
     )
 
     private fun createWallpaperDomain(
@@ -179,6 +192,11 @@ class WallpaperMapperTest {
         displayOrder = 0,
         sourceType = WallpaperSourceType.DIRECT,
         addedAt = 2000L,
-        mediaType = WallpaperMediaType.IMAGE
+        mediaType = WallpaperMediaType.IMAGE,
+        framing = WallpaperFraming(
+            scale = 1.35f,
+            offsetX = 0.25f,
+            offsetY = -0.4f
+        )
     )
 }

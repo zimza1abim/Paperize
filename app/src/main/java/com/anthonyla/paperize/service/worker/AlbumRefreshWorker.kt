@@ -84,16 +84,20 @@ class AlbumRefreshWorker @AssistedInject constructor(
                                     val scannedWallpapers = scanResult.data
 
                                     // Find and add new wallpapers not already in album
+                                    var addedInFolder = 0
+                                    val baseOrder = folder.wallpapers.size
                                     scannedWallpapers.forEach { wallpaper ->
                                         if (wallpaper.uri !in existingUris) {
                                             val wallpaperToAdd = wallpaper.copy(
                                                 albumId = album.id,
-                                                folderId = folder.id
+                                                folderId = folder.id,
+                                                displayOrder = baseOrder + addedInFolder
                                             )
 
                                             when (wallpaperRepository.addWallpaper(wallpaperToAdd)) {
                                                 is CoreResult.Success -> {
                                                     totalAdded.incrementAndGet()
+                                                    addedInFolder += 1
                                                     albumHasNewWallpapers.set(true)
                                                 }
                                                 is CoreResult.Error -> {

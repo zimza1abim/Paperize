@@ -19,7 +19,8 @@ data class Wallpaper(
     val displayOrder: Int = 0,
     val sourceType: WallpaperSourceType = WallpaperSourceType.DIRECT,
     val addedAt: Long = System.currentTimeMillis(),
-    val mediaType: WallpaperMediaType = WallpaperMediaType.IMAGE
+    val mediaType: WallpaperMediaType = WallpaperMediaType.IMAGE,
+    val framing: WallpaperFraming = WallpaperFraming.Default
 ) {
     /**
      * Get URL-decoded file name for display (filename only, no path)

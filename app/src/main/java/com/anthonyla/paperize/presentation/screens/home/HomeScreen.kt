@@ -129,7 +129,8 @@ fun HomeScreen(
                         else -> LibraryScreen(
                             albums = albums,
                             onViewAlbum = onNavigateToAlbum,
-                            onCreateAlbum = { name -> viewModel.createAlbum(name) }
+                            onCreateAlbum = { name -> viewModel.createAlbum(name) },
+                            onRenameAlbum = { albumId, name -> viewModel.renameAlbum(albumId, name) }
                         )
                     }
                 }

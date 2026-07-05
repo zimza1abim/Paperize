@@ -39,9 +39,13 @@
   <string name="click_here_to_view_our_privacy_policy">Click here to view our privacy policy</string>
   <string name="appearance">Appearance</string>
   <string name="about">About</string>
-    <plurals name="wallpaper_count" comment="wallpaper_count [one] [other]">
+  <plurals name="wallpaper_count" comment="wallpaper_count [one] [other]">
     <item quantity="one">%d wallpaper</item>
     <item quantity="other">%d wallpapers</item>
+  </plurals>
+  <plurals name="folder_count" comment="folder_count [one] [other]">
+    <item quantity="one">%d folder</item>
+    <item quantity="other">%d folders</item>
   </plurals>
   <string name="privacy_intro_title">Introduction</string>
   <string name="privacy_intro_content">Welcome to %1$s! This privacy notice outlines how we collect, use, and protect your personal information when you use our mobile application. By using %1$s, you agree to the terms described in this notice.</string>
@@ -58,17 +62,14 @@
     <string name="fill">Fill</string>
   <string name="fit">Fit</string>
   <string name="stretch">Stretch</string>
-  <string name="change_brightness">Brightness Effect</string>
   <string name="home_screen_btn">Home Screen</string>
   <string name="lock_screen_btn">Lock Screen</string>
   <string name="individual_scheduling">Individual Scheduling</string>
   <string name="show_interval_sliders">Show interval sliders</string>
   <string name="interval_text">Time Interval</string>
-  <string name="change_blur">Blur Effect</string>
+  <string name="short_interval_may_be_delayed">Intervals under 15 minutes may be delayed by Android battery optimization.</string>
     <string name="lock">Lock</string>
-  <string name="change_vignette">Vignette Effect</string>
   <string name="none">None</string>
-  <string name="gray_filter">Gray Filter</string>
   <string name="folders">Folders</string>
   <string name="wallpapers_sort">Wallpapers</string>
   <string name="close">Close</string>
@@ -83,11 +84,15 @@
   <string name="double_tap_wallpaper_to_change_it">Double-tap wallpaper to change it</string>
   <string name="change_on_screen_off">Change on Screen Off</string>
   <string name="change_wallpaper_when_screen_turns_off">Change wallpaper when screen turns off</string>
+  <string name="change_on_screen_on">Change on Screen On</string>
+  <string name="change_wallpaper_when_screen_turns_on">Change wallpaper each time the screen turns on</string>
+  <string name="transition_duration">Transition Duration</string>
+  <string name="transition_duration_description">Controls the live wallpaper crossfade time. 0 ms changes instantly.</string>
+  <string name="transition_duration_value_ms">%1$d ms</string>
   <string name="parallax_effect">Parallax Effect</string>
   <string name="wallpaper_moves_with_screen_scroll">Wallpaper moves with screen scroll</string>
   <string name="live_wallpaper_name">Paperize Live Wallpaper</string>
   <string name="live_wallpaper_description">Dynamic wallpapers with effects and interactive features</string>
-    <string name="adaptive_brightness">Adaptive Brightness</string>
   <string name="adjust_brightness_based_on_mode">Adjust brightness based on dark/light mode</string>
   <string name="randomly_shuffle_the_wallpapers">Randomly shuffle the wallpapers</string>
   <string name="changing_wallpaper">Changing wallpaper…</string>
@@ -123,7 +128,6 @@
   <string name="home_album_label">Home Album</string>
   <string name="scaling">Scaling</string>
   <string name="wallpaper_effects_title">Wallpaper Effects</string>
-  <string name="visual_effects">Visual Effects</string>
   <string name="interactive_effects">Interactive Effects</string>
   <string name="current_wallpapers">Current Wallpapers</string>
 
@@ -193,9 +197,9 @@
   <string name="mode_static">Static</string>
   <string name="mode_live_wallpaper">Live Wallpaper</string>
   <string name="switch_button">Switch</string>
-  <string name="mode_switch_warning">Switching modes will reset all albums, wallpapers, and settings. This cannot be undone.</string>
+  <string name="mode_switch_warning">Switching modes keeps your albums and each mode\'s album selections.</string>
   <string name="switch_mode_dialog_title">Switch to %1$s Mode?</string>
-  <string name="switch_mode_dialog_description">This will reset all albums, wallpapers, and scheduling settings. This action cannot be undone.\n\nYou\'ll need to re-add your albums and configure your wallpaper settings.</string>
+  <string name="switch_mode_dialog_description">Your albums and previously selected wallpapers will be kept. Running wallpaper schedules will be stopped and can be started again from the selected mode.</string>
   <string name="switch_mode_button">Switch Mode</string>
   <string name="open_wallpaper_picker_instruction_newline">\nTap \'Open Wallpaper Picker\' below to select Paperize from the list of available live wallpapers.</string>
   <string name="loading_placeholder">…</string>
@@ -207,4 +211,11 @@
   <string name="optimizing">Optimizing (May delay changes)</string>
   <string name="reliability">Reliability</string>
 
+
+  <string name="shortcut_apply_profile_1_short">Apply Profile 1</string>
+  <string name="shortcut_apply_profile_1_long">Paperize Apply Profile 1</string>
+  <string name="shortcut_apply_profile_2_short">Apply Profile 2</string>
+  <string name="shortcut_apply_profile_2_long">Paperize Apply Profile 2</string>
+  <string name="shortcut_apply_profile_3_short">Apply Profile 3</string>
+  <string name="shortcut_apply_profile_3_long">Paperize Apply Profile 3</string>
 </resources>

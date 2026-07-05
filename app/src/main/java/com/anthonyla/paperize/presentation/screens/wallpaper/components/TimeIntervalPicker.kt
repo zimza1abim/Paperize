@@ -64,7 +64,7 @@ fun TimeIntervalPicker(
         if (lastChangeTimestamp > 0) {
             delay(Constants.DEBOUNCE_DELAY_MS)
             val total = (dayValue * Constants.MINUTES_PER_DAY) + (hourValue * Constants.MINUTES_PER_HOUR) + minuteValue
-            // Clamp between minimum and maximum interval
+            // Clamp between minimum and maximum interval. Values under 15 minutes use chained one-time work.
             val clamped = min(max(total, Constants.MIN_INTERVAL_MINUTES), Constants.MAX_INTERVAL_MINUTES)
             onMinutesChange(clamped)
         }
@@ -73,6 +73,14 @@ fun TimeIntervalPicker(
     fun notifyChange() {
         lastChangeTimestamp = System.currentTimeMillis()
     }
+
+    val pendingTotal = (dayValue * Constants.MINUTES_PER_DAY) +
+        (hourValue * Constants.MINUTES_PER_HOUR) +
+        minuteValue
+    val displayedMinutes = min(
+        max(pendingTotal, Constants.MIN_INTERVAL_MINUTES),
+        Constants.MAX_INTERVAL_MINUTES
+    )
 
     androidx.compose.material3.Card(
         shape = MaterialTheme.shapes.medium,
@@ -153,12 +161,22 @@ fun TimeIntervalPicker(
             }
 
             Text(
-                text = "${stringResource(R.string.total_interval)} ${formatIntervalComposable(minutes)}",
+                text = "${stringResource(R.string.total_interval)} ${formatIntervalComposable(displayedMinutes)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (displayedMinutes < Constants.WORK_MANAGER_MIN_PERIODIC_INTERVAL_MINUTES) {
+                Text(
+                    text = stringResource(R.string.short_interval_may_be_delayed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

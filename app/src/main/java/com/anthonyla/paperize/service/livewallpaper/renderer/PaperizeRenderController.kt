@@ -42,6 +42,7 @@ abstract class PaperizeRenderController(
                 // When becoming visible, execute any pending reload
                 if (hasPendingReload) {
                     hasPendingReload = false
+                    consumedPendingReloadOnVisible = true
                     reloadCurrentArtwork(ReloadImmediate)
                 }
             }
@@ -53,7 +54,16 @@ abstract class PaperizeRenderController(
     @Volatile
     private var hasPendingReload = false
 
+    @Volatile
+    private var consumedPendingReloadOnVisible = false
+
     private var throttleJob: Job? = null
+
+    fun consumePendingReloadOnVisibleFlag(): Boolean {
+        val consumed = consumedPendingReloadOnVisible
+        consumedPendingReloadOnVisible = false
+        return consumed
+    }
 
     /**
      * Abstract method to open the current wallpaper for loading.

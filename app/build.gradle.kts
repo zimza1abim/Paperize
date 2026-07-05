@@ -32,8 +32,8 @@ android {
         applicationId = "com.anthonyla.paperize"
         minSdk = 31
         targetSdk = 36
-        versionCode = 50
-        versionName = "4.0.0"
+        versionCode = 58
+        versionName = "4.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -94,7 +94,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material)
     implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
     implementation(libs.coil.gif)
     implementation(libs.coil.svg)
     implementation(libs.androidx.datastore)
@@ -134,3 +133,4 @@ dependencies {
     implementation (libs.kotlinx.serialization.json)
     implementation(libs.toolbar.compose)
 }
+

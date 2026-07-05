@@ -35,11 +35,12 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == Intent.ACTION_USER_UNLOCKED ||
+            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             intent.action == "android.intent.action.QUICKBOOT_POWERON"
         ) {
-            Log.d(TAG, "Boot completed, rescheduling wallpaper changes")
-
-            // Use goAsync() to extend receiver lifecycle for async work
+            Log.d(TAG, "${intent.action} received, rescheduling wallpaper changes")
+// Use goAsync() to extend receiver lifecycle for async work
             // This prevents the system from killing the receiver before coroutine completes
             val pendingResult = goAsync()
 
