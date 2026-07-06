@@ -333,6 +333,11 @@ class HomeViewModel @Inject constructor(
                 // Album selected but changer is not enabled - enable it
                 toggleWallpaperChanger(true)
             }
+
+            if (album != null && settingsRepository.getWallpaperMode() == com.anthonyla.paperize.core.WallpaperMode.LIVE) {
+                Log.d(TAG, "Live album selected: ${album.id}; requesting live wallpaper reload")
+                reloadLiveWallpaperNow()
+            }
         }
     }
 
@@ -524,8 +529,8 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun scheduleAlarms(settings: ScheduleSettings, onlyIfNotScheduled: Boolean = false) {
-        // Check if we're in LIVE mode
-        if (wallpaperMode.value == com.anthonyla.paperize.core.WallpaperMode.LIVE) {
+        // Check the persisted mode directly; wallpaperMode.value can lag during startup.
+        if (settingsRepository.getWallpaperMode() == com.anthonyla.paperize.core.WallpaperMode.LIVE) {
             // LIVE mode: schedule live wallpaper changes
             if (settings.liveAlbumId != null && settings.liveIntervalMinutes > 0) {
                 wallpaperScheduler.scheduleWallpaperChange(
@@ -585,5 +590,3 @@ class HomeViewModel @Inject constructor(
         )
     }
 }
-
-

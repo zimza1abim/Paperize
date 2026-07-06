@@ -129,6 +129,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
                 when (intent?.action) {
                     Constants.ACTION_RELOAD_WALLPAPER -> {
                         Log.d(TAG, "Received reload broadcast")
+                        reapplyCurrentWallpaperOnce = false
                         renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
                     }
                     Constants.ACTION_REAPPLY_CURRENT_WALLPAPER -> {
@@ -227,6 +228,10 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                         if (candidate == null) {
                             queueRebuildAttempts++
                             if (queueRebuildAttempts > Constants.MAX_QUEUE_REBUILD_ATTEMPTS) {
+                                if (skippedCurrentWallpaper != null) {
+                                    wallpaper = skippedCurrentWallpaper
+                                    break
+                                }
                                 Log.w(TAG, "No wallpapers in album $albumId after retries")
                                 return@withContext EmptyImageLoader
                             }
@@ -368,7 +373,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
         }
 
         private fun Wallpaper.logSummary(): String {
-            return "id=${id.take(8)}, mediaType=$mediaType, file=$displayFileName"
+            return "id=${id.take(8)}, album=${albumId.take(8)}, mediaType=$mediaType, file=$displayFileName"
         }
 
         private fun isUserUnlocked(): Boolean {
@@ -444,6 +449,8 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                         Log.d(TAG, "Album changed from $currentAlbumId to $albumId, reloading")
                         if (currentAlbumId == null) {
                             reapplyCurrentWallpaperOnce = true
+                        } else {
+                            reapplyCurrentWallpaperOnce = false
                         }
                         currentAlbumId = albumId
                         renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
