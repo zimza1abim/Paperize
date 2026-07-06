@@ -1,8 +1,12 @@
 package com.anthonyla.paperize.service.tile
 
 import android.content.Intent
+import android.graphics.drawable.Icon
+import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import androidx.core.content.ContextCompat
+import com.anthonyla.paperize.R
 import com.anthonyla.paperize.core.ScreenType
 import com.anthonyla.paperize.core.WallpaperMode
 import com.anthonyla.paperize.core.constants.Constants
@@ -17,7 +21,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Quick Settings Tile for changing wallpaper
+ * Quick Settings Tile for changing wallpaper.
  */
 @AndroidEntryPoint
 class WallpaperTileService : TileService() {
@@ -31,29 +35,35 @@ class WallpaperTileService : TileService() {
         private const val TAG = "WallpaperTileService"
     }
 
+    override fun onStartListening() {
+        super.onStartListening()
+        updateTileState(Tile.STATE_INACTIVE)
+    }
+
     override fun onClick() {
         super.onClick()
+        updateTileState(Tile.STATE_ACTIVE)
 
         serviceScope.launch {
             try {
                 val mode = settingsRepository.getWallpaperMode()
 
                 if (mode == WallpaperMode.LIVE) {
-                    // Send broadcast to trigger live wallpaper reload
-                    val intent = Intent(Constants.ACTION_RELOAD_WALLPAPER)
-                    intent.setPackage(packageName)
+                    val intent = Intent(Constants.ACTION_RELOAD_WALLPAPER).apply {
+                        setPackage(packageName)
+                    }
                     sendBroadcast(intent)
                 } else {
-                    // Start wallpaper change service for static wallpaper
-                    // Use BOTH to ensure synchronized change if configured, or both if not
                     val intent = Intent(this@WallpaperTileService, WallpaperChangeService::class.java).apply {
                         action = Constants.ACTION_CHANGE_WALLPAPER
                         putExtra(Constants.EXTRA_SCREEN_TYPE, ScreenType.BOTH.name)
                     }
-                    startForegroundService(intent)
+                    ContextCompat.startForegroundService(this@WallpaperTileService, intent)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling tile click", e)
+            } finally {
+                updateTileState(Tile.STATE_INACTIVE)
             }
         }
     }
@@ -61,5 +71,14 @@ class WallpaperTileService : TileService() {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
+    }
+
+    private fun updateTileState(state: Int) {
+        qsTile?.apply {
+            label = getString(R.string.tile_next_wallpaper)
+            icon = Icon.createWithResource(this@WallpaperTileService, R.drawable.ic_launcher_monochrome)
+            this.state = state
+            updateTile()
+        }
     }
 }

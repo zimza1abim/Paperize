@@ -218,4 +218,8 @@
   <string name="shortcut_apply_profile_2_long">Paperize Apply Profile 2</string>
   <string name="shortcut_apply_profile_3_short">Apply Profile 3</string>
   <string name="shortcut_apply_profile_3_long">Paperize Apply Profile 3</string>
+  <string name="tile_next_wallpaper">Next Wallpaper</string>
+  <string name="tile_apply_profile_1">Apply Profile 1</string>
+  <string name="tile_apply_profile_2">Apply Profile 2</string>
+  <string name="tile_apply_profile_3">Apply Profile 3</string>
 </resources>
