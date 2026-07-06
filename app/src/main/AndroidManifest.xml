@@ -54,6 +54,9 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <activity
@@ -61,7 +64,7 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
@@ -92,7 +95,7 @@
             android:icon="@mipmap/ic_launcher"
             android:label="Paperize Save Profile 1"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
 
         </activity>
 
@@ -103,7 +106,7 @@
             android:icon="@mipmap/ic_launcher"
             android:label="Paperize Save Profile 2"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
 
         </activity>
 
@@ -114,7 +117,7 @@
             android:icon="@mipmap/ic_launcher"
             android:label="Paperize Save Profile 3"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
 
         </activity>
 
@@ -125,7 +128,7 @@
             android:icon="@mipmap/ic_launcher"
             android:label="Paperize Apply Profile 1"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
 
         </activity>
 
@@ -136,7 +139,7 @@
             android:icon="@mipmap/ic_launcher"
             android:label="Paperize Apply Profile 2"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
 
         </activity>
 
@@ -147,7 +150,7 @@
             android:icon="@mipmap/ic_launcher"
             android:label="Paperize Apply Profile 3"
             android:noHistory="true"
-            android:theme="@style/Theme.Paperize">
+            android:theme="@style/Theme.Paperize.ProfileAction">
 
         </activity>
 
@@ -234,8 +237,4 @@
     </application>
 
 </manifest>
-
-
-
-
 

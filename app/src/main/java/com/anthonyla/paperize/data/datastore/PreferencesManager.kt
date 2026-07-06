@@ -483,6 +483,22 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+    suspend fun getLastAppliedProfileId(): Int? {
+        val profileId = dataStore.data.first()[intPreferencesKey(PreferenceKeys.LAST_APPLIED_PROFILE_ID)]
+        return profileId?.takeIf { it in 1..3 }
+    }
+
+    suspend fun updateLastAppliedProfileId(profileId: Int?) {
+        require(profileId == null || profileId in 1..3) { "Profile id must be 1..3" }
+        dataStore.edit { prefs ->
+            if (profileId == null) {
+                prefs.remove(intPreferencesKey(PreferenceKeys.LAST_APPLIED_PROFILE_ID))
+            } else {
+                prefs[intPreferencesKey(PreferenceKeys.LAST_APPLIED_PROFILE_ID)] = profileId
+            }
+        }
+    }
+
     private fun profileKey(profileId: Int): String = "automation_profile_$profileId"
 
     // ============ Individual Preference Operations ============

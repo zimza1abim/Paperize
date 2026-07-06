@@ -20,6 +20,7 @@ object Constants {
     const val ACTION_REAPPLY_EFFECTS = "com.anthonyla.paperize.ACTION_REAPPLY_EFFECTS"
     const val ACTION_RELOAD_WALLPAPER = "com.anthonyla.paperize.ACTION_RELOAD_WALLPAPER"
     const val ACTION_REAPPLY_CURRENT_WALLPAPER = "com.anthonyla.paperize.ACTION_REAPPLY_CURRENT_WALLPAPER"
+    const val ACTION_PROFILE_APPLIED = "com.anthonyla.paperize.ACTION_PROFILE_APPLIED"
 
     // WorkManager
     const val WORK_NAME_HOME = "wallpaper_change_home"
@@ -219,4 +220,7 @@ object PreferenceKeys {
 
     // Wallpaper mode
     const val WALLPAPER_MODE = "wallpaper_mode"
+
+    // Automation Profiles
+    const val LAST_APPLIED_PROFILE_ID = "last_applied_profile_id"
 }

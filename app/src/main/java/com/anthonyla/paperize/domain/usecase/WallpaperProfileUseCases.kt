@@ -60,10 +60,17 @@ class ApplyWallpaperProfileUseCase @Inject constructor(
         settingsRepository.updateScheduleSettings(targetSettings)
         wallpaperRepository.clearAllQueues()
 
-        return when (targetMode) {
+        val result = when (targetMode) {
             WallpaperMode.LIVE -> applyLiveProfile(targetSettings.liveAlbumId)
             WallpaperMode.STATIC -> applyStaticProfile(targetSettings.homeEnabled, targetSettings.lockEnabled)
         }
+        if (result == ProfileApplyResult.Applied) {
+            settingsRepository.updateLastAppliedProfileId(profileId)
+            context.sendBroadcast(
+                Intent(Constants.ACTION_PROFILE_APPLIED).setPackage(context.packageName)
+            )
+        }
+        return result
     }
 
     private fun validate(profile: WallpaperProfileSnapshot, mode: WallpaperMode): ProfileApplyResult? {

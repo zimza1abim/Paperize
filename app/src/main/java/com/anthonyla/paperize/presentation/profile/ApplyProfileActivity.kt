@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import com.anthonyla.paperize.core.util.ProfileShortcutManager
+import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.usecase.ApplyWallpaperProfileUseCase
 import com.anthonyla.paperize.domain.usecase.ProfileApplyResult
 import com.anthonyla.paperize.domain.usecase.SaveWallpaperProfileUseCase
@@ -23,7 +25,12 @@ open class ApplyProfileActivity : ComponentActivity() {
     @Inject
     lateinit var saveProfileUseCase: SaveWallpaperProfileUseCase
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
         super.onCreate(savedInstanceState)
 
         lifecycleScope.launch {
@@ -40,6 +47,12 @@ open class ApplyProfileActivity : ComponentActivity() {
             }
             finish()
         }
+    }
+
+    override fun finish() {
+        super.finish()
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 
     private fun resolveCommand(): ProfileCommand? {
@@ -95,24 +108,35 @@ open class ApplyProfileActivity : ComponentActivity() {
     }
 
     private suspend fun handleSave(profileId: Int) {
+        val profileName = getProfileName(profileId)
         when (saveProfileUseCase(profileId)) {
-            ProfileApplyResult.Applied -> Toast.makeText(this, "Profile $profileId saved", Toast.LENGTH_SHORT).show()
-            else -> Toast.makeText(this, "Failed to save profile $profileId", Toast.LENGTH_SHORT).show()
+            ProfileApplyResult.Applied -> Toast.makeText(this, "$profileName saved", Toast.LENGTH_SHORT).show()
+            else -> Toast.makeText(this, "Failed to save $profileName", Toast.LENGTH_SHORT).show()
         }
     }
 
     private suspend fun handleApply(profileId: Int) {
+        val profileName = getProfileName(profileId)
         when (applyProfileUseCase(profileId)) {
-            ProfileApplyResult.Applied -> Toast.makeText(this, "Profile $profileId applied", Toast.LENGTH_SHORT).show()
+            ProfileApplyResult.Applied -> {
+                Toast.makeText(this, "$profileName applied", Toast.LENGTH_SHORT).show()
+                ProfileShortcutManager.requestTileRefresh(this)
+            }
             ProfileApplyResult.NeedsLiveWallpaperSelection -> {
                 Toast.makeText(this, "Select Paperize live wallpaper", Toast.LENGTH_SHORT).show()
                 startActivity(applyProfileUseCase.liveWallpaperSelectionIntent())
             }
-            ProfileApplyResult.NotFound -> Toast.makeText(this, "Profile $profileId is not saved", Toast.LENGTH_SHORT).show()
-            ProfileApplyResult.InvalidProfile -> Toast.makeText(this, "Profile $profileId is incomplete", Toast.LENGTH_SHORT).show()
+            ProfileApplyResult.NotFound -> Toast.makeText(this, "$profileName is not saved", Toast.LENGTH_SHORT).show()
+            ProfileApplyResult.InvalidProfile -> Toast.makeText(this, "$profileName is incomplete", Toast.LENGTH_SHORT).show()
             ProfileApplyResult.DeferredUntilUnlocked -> Toast.makeText(this, "Unlock the phone before applying profile", Toast.LENGTH_SHORT).show()
-            ProfileApplyResult.Failed -> Toast.makeText(this, "Failed to apply profile $profileId", Toast.LENGTH_SHORT).show()
+            ProfileApplyResult.Failed -> Toast.makeText(this, "Failed to apply $profileName", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private suspend fun getProfileName(profileId: Int): String {
+        return runCatching {
+            settingsRepository.getWallpaperProfile(profileId)?.name?.takeIf { it.isNotBlank() }
+        }.getOrNull() ?: "Profile $profileId"
     }
 }
 
@@ -125,5 +149,3 @@ private enum class ProfileAction {
     SAVE,
     APPLY
 }
-
-

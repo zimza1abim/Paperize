@@ -51,6 +51,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun saveWallpaperProfile(profile: WallpaperProfileSnapshot) =
         preferencesManager.saveWallpaperProfile(profile)
 
+    override suspend fun getLastAppliedProfileId(): Int? =
+        preferencesManager.getLastAppliedProfileId()
+
+    override suspend fun updateLastAppliedProfileId(profileId: Int?) =
+        preferencesManager.updateLastAppliedProfileId(profileId)
+
     override suspend fun clearAllSettings() =
         preferencesManager.clear()
 
@@ -88,4 +94,3 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateEnableChanger(enabled: Boolean) =
         preferencesManager.updateEnableChanger(enabled)
 }
-

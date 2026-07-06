@@ -1,4 +1,33 @@
 <div align="center">
+  <h1>Paperize Extended</h1>
+  <p><strong>Personal fork of Paperize with live media wallpaper, profile automation, and Galaxy-friendly quick actions.</strong></p>
+</div>
+
+---
+
+## Added In This Fork
+
+- **Live media wallpapers** — Adds live wallpaper support for video and animated image media, including renderer updates for smoother playback and refresh behavior.
+- **Automation profiles** — Save up to three wallpaper profiles with custom names, source selections, modes, schedules, effects, and screen targets.
+- **Profile shortcuts** — Apply saved profiles from app shortcuts, Galaxy Routines, or dedicated profile action activities.
+- **Quick Settings profile tiles** — Adds three profile tiles with custom profile names, active-state highlighting for the last applied profile, lock-screen handling, and toast feedback.
+- **Improved next-wallpaper tile behavior** — The existing wallpaper tile now handles locked-device execution more reliably.
+- **Wallpaper framing controls** — Adds per-wallpaper framing data for scale and position so wallpapers can be adjusted more precisely.
+- **Lock-screen overlay tools** — Adds lock overlay presets and guide helpers for tuning lock-screen wallpaper composition.
+- **Live wallpaper status and startup fixes** — Adds live wallpaper status management and fixes startup/picker edge cases around live wallpaper initialization.
+
+## Build Output
+
+The latest signed release APK generated locally is:
+
+`app/build/outputs/apk/release/app-release.apk`
+
+## Upstream README
+
+<details>
+<summary>Show original Paperize README</summary>
+
+<div align="center">
   <img style="display: block" src="https://github.com/user-attachments/assets/e8fb14f5-ec8e-440e-a2ac-8065322b0e28" alt="">
   <h1>Paperize</h1>
   <p><strong>A dynamic wallpaper changer that keeps your device's aesthetic fresh and exciting</strong></p>
@@ -114,3 +143,5 @@ If you find Paperize useful, consider supporting development through [GitHub Spo
 ## License
 
 This project is licensed under the **GNU General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
+
+</details>

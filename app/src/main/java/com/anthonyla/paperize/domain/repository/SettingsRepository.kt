@@ -67,6 +67,16 @@ interface SettingsRepository {
     suspend fun saveWallpaperProfile(profile: WallpaperProfileSnapshot)
 
     /**
+     * Get the most recently applied automation profile id, if any.
+     */
+    suspend fun getLastAppliedProfileId(): Int?
+
+    /**
+     * Store the most recently applied automation profile id.
+     */
+    suspend fun updateLastAppliedProfileId(profileId: Int?)
+
+    /**
      * Clear all settings
      */
     suspend fun clearAllSettings()
@@ -122,4 +132,3 @@ interface SettingsRepository {
      */
     suspend fun updateEnableChanger(enabled: Boolean)
 }
-

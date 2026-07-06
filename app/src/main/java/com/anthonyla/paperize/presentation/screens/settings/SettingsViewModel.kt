@@ -147,9 +147,10 @@ class SettingsViewModel @Inject constructor(
 
     fun saveProfile(profileId: Int) {
         viewModelScope.launch {
+            val profileName = profileName(profileId)
             _profileMessage.value = when (saveWallpaperProfileUseCase(profileId)) {
-                ProfileApplyResult.Applied -> "Profile $profileId saved"
-                else -> "Failed to save profile $profileId"
+                ProfileApplyResult.Applied -> "$profileName saved"
+                else -> "Failed to save $profileName"
             }
             updateProfileShortcuts()
             refreshProfiles()
@@ -165,16 +166,26 @@ class SettingsViewModel @Inject constructor(
 
     fun applyProfile(profileId: Int) {
         viewModelScope.launch {
-            _profileMessage.value = when (applyWallpaperProfileUseCase(profileId)) {
-                ProfileApplyResult.Applied -> "Profile $profileId applied"
-                ProfileApplyResult.NotFound -> "Profile $profileId is not saved"
-                ProfileApplyResult.InvalidProfile -> "Profile $profileId is incomplete"
+            val profileName = profileName(profileId)
+            val result = applyWallpaperProfileUseCase(profileId)
+            _profileMessage.value = when (result) {
+                ProfileApplyResult.Applied -> {
+                    ProfileShortcutManager.requestTileRefresh(context)
+                    "$profileName applied"
+                }
+                ProfileApplyResult.NotFound -> "$profileName is not saved"
+                ProfileApplyResult.InvalidProfile -> "$profileName is incomplete"
                 ProfileApplyResult.NeedsLiveWallpaperSelection -> "Select Paperize live wallpaper first"
                 ProfileApplyResult.DeferredUntilUnlocked -> "Unlock the phone before applying profile"
-                ProfileApplyResult.Failed -> "Failed to apply profile $profileId"
+                ProfileApplyResult.Failed -> "Failed to apply $profileName"
             }
             refreshProfiles()
         }
+    }
+
+    private suspend fun profileName(profileId: Int): String {
+        return settingsRepository.getWallpaperProfile(profileId)?.name?.takeIf { it.isNotBlank() }
+            ?: "Profile $profileId"
     }
 
     fun consumeProfileMessage() {
@@ -331,6 +342,4 @@ private fun List<Album>.toProfileSources(): List<ProfileSourceUiState> = flatMap
         }
     }
 }
-
-
 

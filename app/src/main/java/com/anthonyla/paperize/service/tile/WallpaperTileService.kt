@@ -2,9 +2,12 @@ package com.anthonyla.paperize.service.tile
 
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.Handler
+import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.anthonyla.paperize.R
 import com.anthonyla.paperize.core.ScreenType
@@ -30,6 +33,7 @@ class WallpaperTileService : TileService() {
     lateinit var settingsRepository: SettingsRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         private const val TAG = "WallpaperTileService"
@@ -42,6 +46,14 @@ class WallpaperTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
+        if (isLocked) {
+            unlockAndRun { changeWallpaperFromTile() }
+        } else {
+            changeWallpaperFromTile()
+        }
+    }
+
+    private fun changeWallpaperFromTile() {
         updateTileState(Tile.STATE_ACTIVE)
 
         serviceScope.launch {
@@ -60,8 +72,10 @@ class WallpaperTileService : TileService() {
                     }
                     ContextCompat.startForegroundService(this@WallpaperTileService, intent)
                 }
+                showToast(getString(R.string.tile_next_wallpaper))
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling tile click", e)
+                showToast("Failed to change wallpaper")
             } finally {
                 updateTileState(Tile.STATE_INACTIVE)
             }
@@ -74,11 +88,19 @@ class WallpaperTileService : TileService() {
     }
 
     private fun updateTileState(state: Int) {
-        qsTile?.apply {
-            label = getString(R.string.tile_next_wallpaper)
-            icon = Icon.createWithResource(this@WallpaperTileService, R.drawable.ic_launcher_monochrome)
-            this.state = state
-            updateTile()
+        mainHandler.post {
+            qsTile?.apply {
+                label = getString(R.string.tile_next_wallpaper)
+                icon = Icon.createWithResource(this@WallpaperTileService, R.drawable.ic_launcher_monochrome)
+                this.state = state
+                updateTile()
+            }
+        }
+    }
+
+    private fun showToast(message: String) {
+        mainHandler.post {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
     }
 }
