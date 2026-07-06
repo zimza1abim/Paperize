@@ -141,6 +141,8 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         }
 
         private var lastScreenOnChangeAt = 0L
+        private var screenOffSeen = false
+        private var handledCurrentScreenOn = false
 
         private val screenEventReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -517,20 +519,31 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
 
         private fun handleScreenOff() {
             if (!isUserUnlocked()) return
-            engineScope.launch {
-                val settings = ensureRepositories().first.getScheduleSettings()
-                if (settings.liveEffects.enableChangeOnScreenOff) {
-                    Log.d(TAG, "Screen off - changing wallpaper")
-                    // Use forceReload to bypass visibility check and load while screen is off
-                    renderController.forceReloadCurrentArtwork()
-                }
-            }
+
+            screenOffSeen = true
+            handledCurrentScreenOn = false
+            Log.d(TAG, "Screen off - keeping current live wallpaper for lock/AOD")
         }
 
         private fun handleScreenOnChange(trigger: String) {
             if (isPreview) return
 
             if (!isUserUnlocked()) return
+
+            if (!screenOffSeen) {
+                Log.d(TAG, "Screen on change ignored because no preceding screen off was seen ($trigger)")
+                return
+            }
+
+            if (handledCurrentScreenOn) {
+                Log.d(TAG, "Screen on change ignored because this wake cycle was already handled ($trigger)")
+                return
+            }
+
+            if (!renderController.visible) {
+                Log.d(TAG, "Screen on change ignored until live wallpaper becomes visible ($trigger)")
+                return
+            }
 
             engineScope.launch {
                 val settings = ensureRepositories().first.getScheduleSettings()
@@ -548,6 +561,8 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                 }
 
                 lastScreenOnChangeAt = now
+                handledCurrentScreenOn = true
+                screenOffSeen = false
 
                 Log.d(TAG, "Screen on - changing wallpaper ($trigger)")
                 renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
