@@ -49,11 +49,6 @@ class HomeViewModel @Inject constructor(
         private const val LIVE_WALLPAPER_RECHECK_DELAY_MS = 1_200L
     }
 
-    init {
-        refreshLiveWallpaperStatus()
-        // Check if Paperize live wallpaper was replaced/disabled on startup
-        checkLiveWallpaperStatus()
-    }
 
     val albums: StateFlow<List<AlbumSummary>> = getAlbumSummariesUseCase()
         .stateIn(
@@ -91,6 +86,12 @@ class HomeViewModel @Inject constructor(
     val showLiveWallpaperPrompt: StateFlow<Boolean> = _showLiveWallpaperPrompt
     private var liveWallpaperPromptJob: Job? = null
 
+    init {
+        refreshLiveWallpaperStatus()
+        // Check if Paperize live wallpaper was replaced/disabled on startup
+        checkLiveWallpaperStatus()
+    }
+
     fun dismissLiveWallpaperPrompt() {
         liveWallpaperPromptJob?.cancel()
         _showLiveWallpaperPrompt.value = false
@@ -123,6 +124,7 @@ class HomeViewModel @Inject constructor(
         )
         refreshLiveWallpaperStatus()
     }
+
     /**
      * Check if Paperize live wallpaper is still active on app startup.
      * Keep saved live-mode settings intact even if Android reports wallpaperInfo late
@@ -583,4 +585,5 @@ class HomeViewModel @Inject constructor(
         )
     }
 }
+
 
