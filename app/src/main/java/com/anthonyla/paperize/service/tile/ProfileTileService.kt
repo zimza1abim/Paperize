@@ -68,12 +68,27 @@ abstract class BaseProfileTileService : TileService() {
         updateTileState(Tile.STATE_ACTIVE)
         serviceScope.launch {
             val profileName = getProfileName()
+            val lastAppliedProfileId = runCatching {
+                settingsRepository.getLastAppliedProfileId()
+            }.getOrNull()
+
+            if (lastAppliedProfileId == profileId) {
+                settingsRepository.updateLastAppliedProfileId(null)
+                sendBroadcast(Intent(Constants.ACTION_PROFILE_APPLIED).setPackage(packageName))
+                ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
+                Log.d(TAG, "Profile $profileId toggled off from QS tile")
+                showToast("$profileName off")
+                refreshTile()
+                return@launch
+            }
+
             val result = runCatching { applyProfileUseCase(profileId) }
                 .onFailure { Log.e(TAG, "Failed to apply profile $profileId from QS tile", it) }
                 .getOrDefault(ProfileApplyResult.Failed)
 
             when (result) {
                 ProfileApplyResult.Applied -> {
+                    Log.d(TAG, "Profile $profileId applied from QS tile")
                     showToast("$profileName applied")
                     ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                 }
@@ -121,6 +136,7 @@ abstract class BaseProfileTileService : TileService() {
                     lastAppliedProfileId == profileId -> Tile.STATE_ACTIVE
                     else -> Tile.STATE_INACTIVE
                 }
+                Log.d(TAG, "Profile $profileId tile state=${tile.state}, lastApplied=$lastAppliedProfileId")
                 tile.updateTile()
             }
         }
