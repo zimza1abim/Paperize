@@ -89,7 +89,8 @@ abstract class PaperizeRenderController(
 
         // If already loading, skip
         if (isLoading) {
-            Log.d(TAG, "Already loading, skipping reload")
+            Log.d(TAG, "Already loading, queueing reload")
+            hasPendingReload = true
             return
         }
 
@@ -159,6 +160,10 @@ abstract class PaperizeRenderController(
                 }
             } finally {
                 isLoading = false
+                if (visible && hasPendingReload) {
+                    hasPendingReload = false
+                    executeReload()
+                }
             }
         }
     }

@@ -66,7 +66,9 @@
   <string name="lock_screen_btn">Lock Screen</string>
   <string name="individual_scheduling">Individual Scheduling</string>
   <string name="show_interval_sliders">Show interval sliders</string>
-  <string name="interval_text">Time Interval</string>
+  <string name="interval_text">Scheduled Interval</string>
+  <string name="interval_static_description">Changes on this timer when the automatic changer runs.</string>
+  <string name="interval_live_description">Changes on this timer only. Wake-to-change and double-tap are separate instant triggers.</string>
   <string name="short_interval_may_be_delayed">Intervals under 15 minutes may be delayed by Android battery optimization.</string>
     <string name="lock">Lock</string>
   <string name="none">None</string>
@@ -82,10 +84,10 @@
   <string name="make_the_colors_grayscale">Make the colors grayscale</string>
   <string name="double_tap_to_change">Double-Tap to Change</string>
   <string name="double_tap_wallpaper_to_change_it">Double-tap wallpaper to change it</string>
-  <string name="change_on_screen_off">Change on Screen Off</string>
-  <string name="change_wallpaper_when_screen_turns_off">Change wallpaper when screen turns off</string>
-  <string name="change_on_screen_on">Change on Screen On</string>
-  <string name="change_wallpaper_when_screen_turns_on">Change wallpaper each time the screen turns on</string>
+  <string name="change_on_screen_off">Screen-Off Trigger</string>
+  <string name="change_wallpaper_when_screen_turns_off">Separate from the scheduled interval. Keeps the new wallpaper ready while the screen is off.</string>
+  <string name="change_on_screen_on">Wake-to-Change Trigger</string>
+  <string name="change_wallpaper_when_screen_turns_on">Separate from the scheduled interval. Changes once when the screen turns on after being locked.</string>
   <string name="transition_duration">Transition Duration</string>
   <string name="transition_duration_description">Controls the live wallpaper crossfade time. 0 ms changes instantly.</string>
   <string name="transition_duration_value_ms">%1$d ms</string>

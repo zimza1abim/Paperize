@@ -591,7 +591,8 @@ fun WallpaperScreen(
                                     lockIntervalMinutes = minutes
                                 )
                             )
-                        }
+                        },
+                        description = stringResource(R.string.interval_static_description)
                     )
                 } else {
                     // Lock screen interval picker first (when individual scheduling is enabled)
@@ -603,7 +604,8 @@ fun WallpaperScreen(
                                 onUpdateScheduleSettings(
                                     scheduleSettings.copy(lockIntervalMinutes = minutes)
                                 )
-                            }
+                            },
+                            description = stringResource(R.string.interval_static_description)
                         )
                     }
                     // Home screen interval picker second
@@ -615,7 +617,8 @@ fun WallpaperScreen(
                                 onUpdateScheduleSettings(
                                     scheduleSettings.copy(homeIntervalMinutes = minutes)
                                 )
-                            }
+                            },
+                            description = stringResource(R.string.interval_static_description)
                         )
                     }
                 }
@@ -628,7 +631,8 @@ fun WallpaperScreen(
                         onUpdateScheduleSettings(
                             scheduleSettings.copy(liveIntervalMinutes = minutes)
                         )
-                    }
+                    },
+                    description = stringResource(R.string.interval_live_description)
                 )
             }
         }
@@ -777,7 +781,7 @@ fun WallpaperScreen(
                     // Change wallpaper on screen off
                     SettingSwitch(
                         title = R.string.change_on_screen_off,
-                        description = if (scheduleSettings.liveEffects.enableChangeOnScreenOff) null else R.string.change_wallpaper_when_screen_turns_off,
+                        description = R.string.change_wallpaper_when_screen_turns_off,
                         checked = scheduleSettings.liveEffects.enableChangeOnScreenOff,
                         onCheckedChange = { enabled ->
                             updateSettingsImmediate(
@@ -791,7 +795,7 @@ fun WallpaperScreen(
                     // Change wallpaper on screen on
                     SettingSwitch(
                         title = R.string.change_on_screen_on,
-                        description = if (scheduleSettings.liveEffects.enableChangeOnScreenOn) null else R.string.change_wallpaper_when_screen_turns_on,
+                        description = R.string.change_wallpaper_when_screen_turns_on,
                         checked = scheduleSettings.liveEffects.enableChangeOnScreenOn,
                         onCheckedChange = { enabled ->
                             updateSettingsImmediate(
@@ -1018,4 +1022,3 @@ fun WallpaperScreen(
         )
     }
 }
-

@@ -693,6 +693,15 @@ class PaperizeWallpaperRenderer(
             video.setOnPreparedAvailableListener {
                 Log.d(TAG, "Video wallpaper prepared, waiting for first frame: ${videoLoader.uri}")
             }
+            video.setOnPlaybackErrorListener {
+                callbacks.queueEventOnGlThread {
+                    if (pendingVideoWallpaper === wallpaper) {
+                        Log.w(TAG, "Video playback failed before first frame; keeping current wallpaper: ${videoLoader.uri}")
+                        recyclePendingVideoWallpaper()
+                        callbacks.requestRender()
+                    }
+                }
+            }
             video.setPlaybackVisible(playbackVisible)
 
             if (video.hasFirstFrame()) {

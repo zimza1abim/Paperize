@@ -3,7 +3,9 @@ package com.anthonyla.paperize.presentation.screens.album_view
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Log
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +45,8 @@ import com.anthonyla.paperize.presentation.screens.album_view.components.SortOpt
 import com.anthonyla.paperize.presentation.screens.album_view.components.WallpaperItem
 import com.anthonyla.paperize.presentation.theme.AppGrid
 import com.anthonyla.paperize.presentation.theme.AppSpacing
+
+private const val TAG = "AlbumViewScreen"
 
 @Composable
 fun AlbumViewScreen(
@@ -115,18 +119,17 @@ fun AlbumViewScreen(
             .aspectRatio(Constants.WALLPAPER_ASPECT_RATIO)
     }
 
-    // Media picker. Keep SAF stable here; chooser-based ACTION_GET_CONTENT can be
-    // restored by Android after process death and has caused startup picker loops on some devices.
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
+    val mediaPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
             uris.forEach { uri ->
                 try {
                     context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-                } catch (_: Exception) {
-                    // Some providers do not support persistable grants.
+                } catch (e: Exception) {
+                    // Some Photo Picker providers manage grants themselves or reject persistable grants.
+                    Log.w(TAG, "Unable to persist media URI permission: $uri", e)
                 }
             }
             viewModel.addWallpapers(uris.map { it.toString() })
@@ -168,7 +171,11 @@ fun AlbumViewScreen(
             if (!isSelectionMode) {
                 AddAlbumAnimatedFab(
                     isLoading = false,
-                    onImageClick = { imagePickerLauncher.launch(arrayOf("image/*", "video/*")) },
+                    onImageClick = {
+                        mediaPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                        )
+                    },
                     onFolderClick = { folderPickerLauncher.launch(null) }
                 )
             }
@@ -281,6 +288,5 @@ fun AlbumViewScreen(
         )
     }
 }
-
 
 

@@ -42,6 +42,7 @@ class GLVideoWallpaper(
 
     private var onPreparedAvailable: (() -> Unit)? = null
     private var onFirstFrameAvailable: (() -> Unit)? = null
+    private var onPlaybackError: (() -> Unit)? = null
 
     var width: Int = 1
         private set
@@ -137,6 +138,7 @@ class GLVideoWallpaper(
             }
             setOnErrorListener { _, what, extra ->
                 Log.e(TAG, "Video playback error for $uri: what=$what extra=$extra")
+                onPlaybackError?.invoke()
                 true
             }
             setDataSource(context, uri)
@@ -156,6 +158,10 @@ class GLVideoWallpaper(
         if (firstFrameDelivered && !isReleased) {
             listener()
         }
+    }
+
+    fun setOnPlaybackErrorListener(listener: () -> Unit) {
+        onPlaybackError = listener
     }
 
     fun hasFirstFrame(): Boolean = firstFrameDelivered

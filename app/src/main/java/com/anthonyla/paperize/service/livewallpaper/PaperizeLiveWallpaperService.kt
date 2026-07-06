@@ -143,6 +143,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         private var lastScreenOnChangeAt = 0L
         private var screenOffSeen = false
         private var handledCurrentScreenOn = false
+        private var pendingScreenOnChange = false
 
         private val screenEventReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -377,7 +378,6 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
         private fun startLiveWallpaperAfterUnlock() {
             if (!isUserUnlocked()) return
             LiveWallpaperStatusManager.markEngineSeen(applicationContext)
-            renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
             observeSettings()
         }
 
@@ -418,11 +418,17 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                         }
                     }
                     
-                    // Reload if album changed
+                    // Reload if album changed. The first engine load should reapply the
+                    // persisted current wallpaper instead of consuming the next queue item;
+                    // live wallpaper engines may be recreated independently of the user's
+                    // schedule interval.
                     if (albumId != currentAlbumId) {
                         Log.d(TAG, "Album changed from $currentAlbumId to $albumId, reloading")
+                        if (currentAlbumId == null) {
+                            reapplyCurrentWallpaperOnce = true
+                        }
                         currentAlbumId = albumId
-                        renderController.reloadCurrentArtwork()
+                        renderController.reloadCurrentArtwork(com.anthonyla.paperize.service.livewallpaper.renderer.ReloadImmediate)
                     }
                 }
             }
@@ -444,11 +450,13 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
             if (visible) {
                 LiveWallpaperStatusManager.markEngineSeen(applicationContext)
                 renderer.setPlaybackVisible(true)
-                if (renderController.consumePendingReloadOnVisibleFlag()) {
-                    Log.d(TAG, "Screen on change skipped because a pending reload was consumed")
-                } else {
-                    handleScreenOnChange("visibility")
+                val consumedPendingReload = renderController.consumePendingReloadOnVisibleFlag()
+                if (consumedPendingReload) {
+                    Log.d(TAG, "Pending reload was consumed on visible")
                 }
+                val trigger = if (pendingScreenOnChange) "pending-screen-on-visible" else "visibility"
+                pendingScreenOnChange = false
+                handleScreenOnChange(trigger)
             } else {
                 renderer.setPlaybackVisible(false)
             }
@@ -522,6 +530,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
 
             screenOffSeen = true
             handledCurrentScreenOn = false
+            pendingScreenOnChange = false
             Log.d(TAG, "Screen off - keeping current live wallpaper for lock/AOD")
         }
 
@@ -542,6 +551,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
 
             if (!renderController.visible) {
                 Log.d(TAG, "Screen on change ignored until live wallpaper becomes visible ($trigger)")
+                pendingScreenOnChange = true
                 return
             }
 
@@ -552,11 +562,6 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                 val now = SystemClock.elapsedRealtime()
                 if (now - lastScreenOnChangeAt < SCREEN_ON_CHANGE_DEBOUNCE_MS) {
                     Log.d(TAG, "Screen on change ignored due to debounce")
-                    return@launch
-                }
-
-                if (!surfaceHolder.surface.isValid) {
-                    Log.d(TAG, "Screen on change ignored because surface is not valid")
                     return@launch
                 }
 

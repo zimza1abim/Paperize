@@ -39,7 +39,8 @@ fun TimeIntervalPicker(
     title: String,
     minutes: Int,
     onMinutesChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    description: String? = null
 ) {
     // Decompose incoming minutes value into days, hours, minutes
     val initialDays = minutes / Constants.MINUTES_PER_DAY
@@ -102,6 +103,15 @@ fun TimeIntervalPicker(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            description?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
