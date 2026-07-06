@@ -13,6 +13,8 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import android.widget.Toast
+import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
 import com.anthonyla.paperize.R
 import com.anthonyla.paperize.core.constants.Constants
 import com.anthonyla.paperize.core.util.ProfileShortcutManager
@@ -46,12 +48,14 @@ abstract class BaseProfileTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
+        registerListeningTile()
         registerProfileReceiver()
         refreshTile()
     }
 
     override fun onStopListening() {
         unregisterProfileReceiver()
+        unregisterListeningTile()
         super.onStopListening()
     }
 
@@ -75,6 +79,7 @@ abstract class BaseProfileTileService : TileService() {
             if (lastAppliedProfileId == profileId) {
                 settingsRepository.updateLastAppliedProfileId(null)
                 sendBroadcast(Intent(Constants.ACTION_PROFILE_APPLIED).setPackage(packageName))
+                refreshListeningTiles()
                 ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                 Log.d(TAG, "Profile $profileId toggled off from QS tile")
                 showToast("$profileName off")
@@ -90,6 +95,7 @@ abstract class BaseProfileTileService : TileService() {
                 ProfileApplyResult.Applied -> {
                     Log.d(TAG, "Profile $profileId applied from QS tile")
                     showToast("$profileName applied")
+                    refreshListeningTiles()
                     ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                 }
                 ProfileApplyResult.NeedsLiveWallpaperSelection -> {
@@ -196,8 +202,23 @@ abstract class BaseProfileTileService : TileService() {
         isProfileReceiverRegistered = false
     }
 
+    private fun registerListeningTile() {
+        listeningTiles[profileId] = WeakReference(this)
+    }
+
+    private fun unregisterListeningTile() {
+        listeningTiles.remove(profileId)
+    }
+
     private companion object {
         private const val TAG = "ProfileTileService"
+        private val listeningTiles = ConcurrentHashMap<Int, WeakReference<BaseProfileTileService>>()
+
+        fun refreshListeningTiles() {
+            listeningTiles.values.forEach { tileService ->
+                tileService.get()?.refreshTile()
+            }
+        }
     }
 }
 

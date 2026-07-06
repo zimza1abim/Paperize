@@ -191,6 +191,9 @@
             android:icon="@drawable/ic_launcher_monochrome"
             android:label="@string/tile_apply_profile_1"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
@@ -202,6 +205,9 @@
             android:icon="@drawable/ic_launcher_monochrome"
             android:label="@string/tile_apply_profile_2"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
@@ -213,6 +219,9 @@
             android:icon="@drawable/ic_launcher_monochrome"
             android:label="@string/tile_apply_profile_3"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
@@ -237,4 +246,3 @@
     </application>
 
 </manifest>
-
