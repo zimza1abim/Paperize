@@ -202,6 +202,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                     if (reapplyCurrent) {
                         val current = wallpaperRepository.getCurrentWallpaper(albumId, ScreenType.LIVE)
                         if (current != null && current.uri.toUri().isValid(contentResolver)) {
+                            Log.d(TAG, "Reapplying current live wallpaper: ${current.logSummary()}")
                             return@withContext createImageLoader(current, settings.liveScalingType)
                         }
                         Log.d(TAG, "No current live wallpaper to reapply; falling back to next queue item")
@@ -214,6 +215,8 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                     }
                     
                     var wallpaper: Wallpaper? = null
+                    val currentWallpaper = wallpaperRepository.getCurrentWallpaper(albumId, ScreenType.LIVE)
+                    var skippedCurrentWallpaper: Wallpaper? = null
                     var maxRetries = Constants.MAX_WALLPAPER_LOAD_RETRIES // Prevent infinite loop
                     var queueRebuildAttempts = 0
 
@@ -236,6 +239,12 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                         // Validate URI
                         val uri = candidate.uri.toUri()
                         if (uri.isValid(contentResolver)) {
+                            if (candidate.id == currentWallpaper?.id) {
+                                Log.d(TAG, "Skipping current live wallpaper candidate: ${candidate.logSummary()}")
+                                skippedCurrentWallpaper = candidate
+                                maxRetries--
+                                continue
+                            }
                             wallpaper = candidate
                         } else {
                             // Skip this cycle — do not permanently delete.
@@ -246,8 +255,12 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                     }
 
                     if (wallpaper == null) {
-                        Log.w(TAG, "No valid wallpaper found after retries")
-                        return@withContext EmptyImageLoader
+                        wallpaper = skippedCurrentWallpaper
+                        if (wallpaper == null) {
+                            Log.w(TAG, "No valid wallpaper found after retries")
+                            return@withContext EmptyImageLoader
+                        }
+                        Log.d(TAG, "Only current live wallpaper was available; reusing it: ${wallpaper.logSummary()}")
                     }
 
                     // Peek at queue to see if it needs refilling (not dequeuing, just checking)
@@ -258,6 +271,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
 
                     try {
                         wallpaperRepository.setCurrentWallpaper(albumId, ScreenType.LIVE, wallpaper.id)
+                        Log.d(TAG, "Selected live wallpaper: ${wallpaper.logSummary()}")
                         createImageLoader(wallpaper, settings.liveScalingType)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error creating image loader", e)
@@ -351,6 +365,10 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                     }
                 }
             }
+        }
+
+        private fun Wallpaper.logSummary(): String {
+            return "id=${id.take(8)}, mediaType=$mediaType, file=$displayFileName"
         }
 
         private fun isUserUnlocked(): Boolean {

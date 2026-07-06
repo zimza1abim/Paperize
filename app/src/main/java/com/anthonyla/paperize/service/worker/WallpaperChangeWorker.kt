@@ -8,6 +8,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.anthonyla.paperize.core.EmptyAlbumException
 import com.anthonyla.paperize.core.ScreenType
+import com.anthonyla.paperize.core.WallpaperMode
 import com.anthonyla.paperize.core.constants.Constants
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.repository.WallpaperRepository
@@ -44,6 +45,19 @@ class WallpaperChangeWorker @AssistedInject constructor(
         return try {
             val screenTypeString = inputData.getString(Constants.EXTRA_SCREEN_TYPE)
             val screenType = screenTypeString?.let { ScreenType.fromString(it) } ?: ScreenType.HOME
+            val mode = settingsRepository.getWallpaperMode()
+
+            if (mode == WallpaperMode.LIVE && screenType != ScreenType.LIVE) {
+                Log.d(TAG, "Ignoring stale $screenType work while in LIVE mode")
+                wallpaperScheduler.cancelStaticWallpaperChanges()
+                return Result.success()
+            }
+
+            if (mode == WallpaperMode.STATIC && screenType == ScreenType.LIVE) {
+                Log.d(TAG, "Ignoring stale LIVE work while in STATIC mode")
+                wallpaperScheduler.cancelWallpaperChange(ScreenType.LIVE)
+                return Result.success()
+            }
 
             Log.d(TAG, "Starting wallpaper change for $screenType")
 
