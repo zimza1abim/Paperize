@@ -96,10 +96,7 @@
             android:label="Paperize Save Profile 1"
             android:noHistory="true"
             android:theme="@style/Theme.Paperize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+
         </activity>
 
         <activity
@@ -110,10 +107,7 @@
             android:label="Paperize Save Profile 2"
             android:noHistory="true"
             android:theme="@style/Theme.Paperize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+
         </activity>
 
         <activity
@@ -124,10 +118,7 @@
             android:label="Paperize Save Profile 3"
             android:noHistory="true"
             android:theme="@style/Theme.Paperize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+
         </activity>
 
         <activity
@@ -138,10 +129,7 @@
             android:label="Paperize Apply Profile 1"
             android:noHistory="true"
             android:theme="@style/Theme.Paperize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+
         </activity>
 
         <activity
@@ -152,10 +140,7 @@
             android:label="Paperize Apply Profile 2"
             android:noHistory="true"
             android:theme="@style/Theme.Paperize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+
         </activity>
 
         <activity
@@ -166,10 +151,7 @@
             android:label="Paperize Apply Profile 3"
             android:noHistory="true"
             android:theme="@style/Theme.Paperize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+
         </activity>
 
         <service
@@ -222,6 +204,8 @@
     </application>
 
 </manifest>
+
+
 
 
 

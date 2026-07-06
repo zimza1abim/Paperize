@@ -115,34 +115,21 @@ fun AlbumViewScreen(
             .aspectRatio(Constants.WALLPAPER_ASPECT_RATIO)
     }
 
-    // Media picker. ACTION_GET_CONTENT makes Gallery-style providers visible while
-    // keeping the existing URI pipeline; persistable permission is attempted when supported.
+    // Media picker. Keep SAF stable here; chooser-based ACTION_GET_CONTENT can be
+    // restored by Android after process death and has caused startup picker loops on some devices.
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val data = result.data
-            val uris = buildList {
-                data?.clipData?.let { clipData ->
-                    repeat(clipData.itemCount) { index ->
-                        clipData.getItemAt(index).uri?.let(::add)
-                    }
-                }
-                if (isEmpty()) {
-                    data?.data?.let(::add)
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            uris.forEach { uri ->
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                } catch (_: Exception) {
+                    // Some providers do not support persistable grants.
                 }
             }
-            if (uris.isNotEmpty()) {
-                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                uris.forEach { uri ->
-                    try {
-                        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-                    } catch (_: Exception) {
-                        // Gallery providers often grant transient read access only.
-                    }
-                }
-                viewModel.addWallpapers(uris.map { it.toString() })
-            }
+            viewModel.addWallpapers(uris.map { it.toString() })
         }
     }
 
@@ -181,19 +168,7 @@ fun AlbumViewScreen(
             if (!isSelectionMode) {
                 AddAlbumAnimatedFab(
                     isLoading = false,
-                    onImageClick = {
-                        val pickIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                            type = "*/*"
-                            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-                            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            addFlags(
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                            )
-                        }
-                        imagePickerLauncher.launch(Intent.createChooser(pickIntent, "Add media"))
-                    },
+                    onImageClick = { imagePickerLauncher.launch(arrayOf("image/*", "video/*")) },
                     onFolderClick = { folderPickerLauncher.launch(null) }
                 )
             }
@@ -306,4 +281,6 @@ fun AlbumViewScreen(
         )
     }
 }
+
+
 

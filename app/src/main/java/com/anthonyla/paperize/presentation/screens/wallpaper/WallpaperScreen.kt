@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
@@ -67,6 +69,10 @@ fun WallpaperScreen(
     scheduleSettings: ScheduleSettings,
     appSettings: AppSettings,
     wallpaperMode: WallpaperMode,
+    isLiveWallpaperActive: Boolean = false,
+    onRefreshLiveWallpaperStatus: () -> Unit = {},
+    onOpenLiveWallpaperPicker: () -> Unit = {},
+    onReloadLiveWallpaper: () -> Unit = {},
     onToggleChanger: (Boolean) -> Unit,
     onSelectHomeAlbum: (AlbumSummary?) -> Unit,
     onSelectLockAlbum: (AlbumSummary?) -> Unit,
@@ -474,6 +480,79 @@ fun WallpaperScreen(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+
+        if (wallpaperMode == WallpaperMode.LIVE) {
+            Card(
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(PaddingValues(horizontal = AppSpacing.small, vertical = AppSpacing.extraSmall))
+            ) {
+                Column(
+                    modifier = Modifier.padding(AppSpacing.large),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isLiveWallpaperActive) Icons.Filled.CheckCircle else Icons.Filled.Error,
+                                contentDescription = null,
+                                tint = if (isLiveWallpaperActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            )
+                            Column {
+                                Text(
+                                    text = "Live wallpaper status",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (isLiveWallpaperActive) "Running" else "Not active",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isLiveWallpaperActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        TextButton(onClick = onRefreshLiveWallpaperStatus) {
+                            Text("Refresh")
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                    ) {
+                        TextButton(
+                            onClick = onOpenLiveWallpaperPicker,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Select live wallpaper")
+                        }
+                        TextButton(
+                            onClick = onReloadLiveWallpaper,
+                            enabled = isLiveWallpaperActive,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Reload now")
+                        }
+                    }
                 }
             }
         }
@@ -939,3 +1018,4 @@ fun WallpaperScreen(
         )
     }
 }
+

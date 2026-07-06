@@ -1,5 +1,7 @@
 package com.anthonyla.paperize.presentation.screens.home
 
+import android.app.WallpaperManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -48,6 +50,7 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
+        refreshLiveWallpaperStatus()
         // Check if Paperize live wallpaper was replaced/disabled on startup
         checkLiveWallpaperStatus()
     }
@@ -80,6 +83,9 @@ class HomeViewModel @Inject constructor(
             initialValue = null
         )
 
+    private val _isLiveWallpaperActive = MutableStateFlow(false)
+    val isLiveWallpaperActive: StateFlow<Boolean> = _isLiveWallpaperActive
+
     // Show prompt to select live wallpaper when enabling changer in LIVE mode
     private val _showLiveWallpaperPrompt = MutableStateFlow(false)
     val showLiveWallpaperPrompt: StateFlow<Boolean> = _showLiveWallpaperPrompt
@@ -90,6 +96,33 @@ class HomeViewModel @Inject constructor(
         _showLiveWallpaperPrompt.value = false
     }
 
+    fun refreshLiveWallpaperStatus() {
+        viewModelScope.launch {
+            _isLiveWallpaperActive.value = isPaperizeLiveWallpaperActive(context) ||
+                LiveWallpaperStatusManager.wasEngineSeenRecently(context)
+        }
+    }
+
+    fun openLiveWallpaperPicker() {
+        val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+            putExtra(
+                WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                ComponentName(
+                    context.packageName,
+                    "com.anthonyla.paperize.service.livewallpaper.PaperizeLiveWallpaperService"
+                )
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+
+    fun reloadLiveWallpaperNow() {
+        context.sendBroadcast(
+            Intent(Constants.ACTION_RELOAD_WALLPAPER).setPackage(context.packageName)
+        )
+        refreshLiveWallpaperStatus()
+    }
     /**
      * Check if Paperize live wallpaper is still active on app startup.
      * Keep saved live-mode settings intact even if Android reports wallpaperInfo late
@@ -113,6 +146,7 @@ class HomeViewModel @Inject constructor(
             }
 
             val isActive = isPaperizeLiveWallpaperActive(context) || recheckLiveWallpaperActive()
+            _isLiveWallpaperActive.value = isActive
             Log.d(TAG, "Startup check: LIVE mode with album selected, confirmedActive=$isActive")
 
             if (!isActive) {
@@ -460,7 +494,7 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun recheckLiveWallpaperActive(): Boolean {
         delay(LIVE_WALLPAPER_RECHECK_DELAY_MS)
-        return isPaperizeLiveWallpaperActive(context)
+        return isPaperizeLiveWallpaperActive(context).also { _isLiveWallpaperActive.value = it }
     }
 
     fun updateScheduleSettingsDebounced(settings: ScheduleSettings) {
@@ -549,3 +583,4 @@ class HomeViewModel @Inject constructor(
         )
     }
 }
+
