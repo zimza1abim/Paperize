@@ -6,11 +6,13 @@ import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.net.Uri
+import android.util.Log
 import com.anthonyla.paperize.R
 import com.anthonyla.paperize.domain.model.WallpaperProfileSnapshot
 import com.anthonyla.paperize.presentation.profile.ApplyProfileActivity
 
 object ProfileShortcutManager {
+    private const val TAG = "ProfileShortcutManager"
     fun updateApplyShortcuts(
         context: Context,
         profiles: List<WallpaperProfileSnapshot?>
@@ -32,7 +34,8 @@ object ProfileShortcutManager {
                 )
                 .build()
         }
-        manager.dynamicShortcuts = shortcuts
+        runCatching { manager.dynamicShortcuts = shortcuts }
+            .onFailure { Log.w(TAG, "Unable to update profile shortcuts", it) }
     }
 }
 
