@@ -488,6 +488,10 @@ class PreferencesManager @Inject constructor(
         return profileId?.takeIf { it in 1..3 }
     }
 
+    fun observeLastAppliedProfileId(): Flow<Int?> = dataStore.data.map { prefs ->
+        prefs[intPreferencesKey(PreferenceKeys.LAST_APPLIED_PROFILE_ID)]?.takeIf { it in 1..3 }
+    }
+
     suspend fun updateLastAppliedProfileId(profileId: Int?) {
         require(profileId == null || profileId in 1..3) { "Profile id must be 1..3" }
         dataStore.edit { prefs ->

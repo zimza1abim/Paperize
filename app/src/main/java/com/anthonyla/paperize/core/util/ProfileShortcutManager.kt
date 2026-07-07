@@ -7,8 +7,6 @@ import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.service.quicksettings.TileService
 import android.util.Log
 import com.anthonyla.paperize.R
@@ -20,7 +18,6 @@ import com.anthonyla.paperize.service.tile.Profile3TileService
 
 object ProfileShortcutManager {
     private const val TAG = "ProfileShortcutManager"
-    private val tileRefreshHandler = Handler(Looper.getMainLooper())
 
     fun updateApplyShortcuts(
         context: Context,
@@ -49,12 +46,6 @@ object ProfileShortcutManager {
     }
 
     fun requestTileRefresh(context: Context) {
-        requestTileRefreshOnce(context)
-        tileRefreshHandler.postDelayed({ requestTileRefreshOnce(context) }, 250L)
-        tileRefreshHandler.postDelayed({ requestTileRefreshOnce(context) }, 750L)
-    }
-
-    private fun requestTileRefreshOnce(context: Context) {
         val appContext = context.applicationContext
         listOf(
             Profile1TileService::class.java,

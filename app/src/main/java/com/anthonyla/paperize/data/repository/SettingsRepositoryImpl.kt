@@ -54,6 +54,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun getLastAppliedProfileId(): Int? =
         preferencesManager.getLastAppliedProfileId()
 
+    override fun observeLastAppliedProfileId(): Flow<Int?> =
+        preferencesManager.observeLastAppliedProfileId()
+
     override suspend fun updateLastAppliedProfileId(profileId: Int?) =
         preferencesManager.updateLastAppliedProfileId(profileId)
 

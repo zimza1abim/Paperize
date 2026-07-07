@@ -1,10 +1,7 @@
 package com.anthonyla.paperize.service.tile
 
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.os.Handler
 import android.os.Looper
@@ -13,17 +10,14 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import android.widget.Toast
-import java.lang.ref.WeakReference
-import java.util.concurrent.ConcurrentHashMap
 import com.anthonyla.paperize.R
-import com.anthonyla.paperize.core.constants.Constants
-import com.anthonyla.paperize.core.util.ProfileShortcutManager
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.usecase.ApplyWallpaperProfileUseCase
 import com.anthonyla.paperize.domain.usecase.ProfileApplyResult
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -37,25 +31,24 @@ abstract class BaseProfileTileService : TileService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var isProfileReceiverRegistered = false
-    private val profileAppliedReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Constants.ACTION_PROFILE_APPLIED) {
-                refreshTile()
+    private var listeningJob: Job? = null
+    @Volatile
+    private var hasSavedProfile: Boolean = false
+
+    override fun onStartListening() {
+        super.onStartListening()
+        listeningJob?.cancel()
+        listeningJob = serviceScope.launch {
+            refreshTileInternal()
+            settingsRepository.observeLastAppliedProfileId().collect { lastAppliedProfileId ->
+                refreshTileStateOnly(lastAppliedProfileId)
             }
         }
     }
 
-    override fun onStartListening() {
-        super.onStartListening()
-        registerListeningTile()
-        registerProfileReceiver()
-        refreshTile()
-    }
-
     override fun onStopListening() {
-        unregisterProfileReceiver()
-        unregisterListeningTile()
+        listeningJob?.cancel()
+        listeningJob = null
         super.onStopListening()
     }
 
@@ -69,7 +62,13 @@ abstract class BaseProfileTileService : TileService() {
     }
 
     private fun applyProfileFromTile() {
-        updateTileState(Tile.STATE_ACTIVE)
+        val optimisticState = if (qsTile?.state == Tile.STATE_ACTIVE) {
+            Tile.STATE_INACTIVE
+        } else {
+            Tile.STATE_ACTIVE
+        }
+        updateTileState(optimisticState)
+
         serviceScope.launch {
             val profileName = getProfileName()
             val lastAppliedProfileId = runCatching {
@@ -78,12 +77,8 @@ abstract class BaseProfileTileService : TileService() {
 
             if (lastAppliedProfileId == profileId) {
                 settingsRepository.updateLastAppliedProfileId(null)
-                sendBroadcast(Intent(Constants.ACTION_PROFILE_APPLIED).setPackage(packageName))
-                refreshListeningTiles()
-                ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                 Log.d(TAG, "Profile $profileId toggled off from QS tile")
                 showToast("$profileName off")
-                refreshTile()
                 return@launch
             }
 
@@ -95,55 +90,91 @@ abstract class BaseProfileTileService : TileService() {
                 ProfileApplyResult.Applied -> {
                     Log.d(TAG, "Profile $profileId applied from QS tile")
                     showToast("$profileName applied")
-                    refreshListeningTiles()
-                    ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                 }
                 ProfileApplyResult.NeedsLiveWallpaperSelection -> {
+                    refreshTileStateOnly(lastAppliedProfileId)
                     showToast("Select Paperize live wallpaper")
                     runCatching {
                         startActivityAndCollapseCompat(applyProfileUseCase.liveWallpaperSelectionIntent())
                     }.onFailure { Log.e(TAG, "Failed to open live wallpaper picker", it) }
                 }
-                ProfileApplyResult.NotFound -> showToast("$profileName is not saved")
-                ProfileApplyResult.InvalidProfile -> showToast("$profileName is incomplete")
-                ProfileApplyResult.DeferredUntilUnlocked -> showToast("Unlock the phone before applying profile")
-                ProfileApplyResult.Failed -> showToast("Failed to apply $profileName")
+                ProfileApplyResult.NotFound -> {
+                    refreshTileStateOnly(lastAppliedProfileId)
+                    showToast("$profileName is not saved")
+                }
+                ProfileApplyResult.InvalidProfile -> {
+                    refreshTileStateOnly(lastAppliedProfileId)
+                    showToast("$profileName is incomplete")
+                }
+                ProfileApplyResult.DeferredUntilUnlocked -> {
+                    refreshTileStateOnly(lastAppliedProfileId)
+                    showToast("Unlock the phone before applying profile")
+                }
+                ProfileApplyResult.Failed -> {
+                    refreshTileStateOnly(lastAppliedProfileId)
+                    showToast("Failed to apply $profileName")
+                }
             }
             refreshTile()
         }
     }
 
     override fun onDestroy() {
-        unregisterProfileReceiver()
         super.onDestroy()
         serviceScope.cancel()
     }
 
     private fun refreshTile() {
-        val tile = qsTile ?: return
         serviceScope.launch {
-            val fallback = "Profile $profileId"
-            val profile = runCatching {
-                settingsRepository.getWallpaperProfile(profileId)
-            }.getOrNull()
-            val lastAppliedProfileId = runCatching {
-                settingsRepository.getLastAppliedProfileId()
-            }.getOrNull()
-            val name = profile?.name?.takeIf { it.isNotBlank() } ?: fallback
+            refreshTileInternal()
+        }
+    }
 
-            withContext(Dispatchers.Main) {
-                tile.label = name
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    tile.subtitle = if (profile == null) "Not saved" else fallback
-                }
-                tile.icon = Icon.createWithResource(this@BaseProfileTileService, R.drawable.ic_launcher_monochrome)
-                tile.state = when {
-                    profile == null -> Tile.STATE_UNAVAILABLE
+    private suspend fun refreshTileInternal() {
+        val tile = qsTile ?: return
+        val fallback = "Profile $profileId"
+        val profile = runCatching {
+            settingsRepository.getWallpaperProfile(profileId)
+        }.getOrNull()
+        val lastAppliedProfileId = runCatching {
+            settingsRepository.getLastAppliedProfileId()
+        }.getOrNull()
+        val name = profile?.name?.takeIf { it.isNotBlank() } ?: fallback
+        hasSavedProfile = profile != null
+
+        withContext(Dispatchers.Main) {
+            tile.label = name
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                tile.subtitle = if (profile == null) "Not saved" else fallback
+            }
+            tile.icon = Icon.createWithResource(this@BaseProfileTileService, R.drawable.ic_launcher_monochrome)
+            tile.state = when {
+                profile == null -> Tile.STATE_UNAVAILABLE
+                lastAppliedProfileId == profileId -> Tile.STATE_ACTIVE
+                else -> Tile.STATE_INACTIVE
+            }
+            Log.d(TAG, "Profile $profileId tile state=${tile.state}, lastApplied=$lastAppliedProfileId")
+            tile.updateTile()
+        }
+    }
+
+    private suspend fun refreshTileStateOnly(lastAppliedProfileId: Int?) {
+        withContext(Dispatchers.Main) {
+            qsTile?.apply {
+                state = when {
+                    !hasSavedProfile -> Tile.STATE_UNAVAILABLE
                     lastAppliedProfileId == profileId -> Tile.STATE_ACTIVE
                     else -> Tile.STATE_INACTIVE
                 }
-                Log.d(TAG, "Profile $profileId tile state=${tile.state}, lastApplied=$lastAppliedProfileId")
-                tile.updateTile()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    subtitle = when (state) {
+                        Tile.STATE_ACTIVE -> "ON"
+                        Tile.STATE_UNAVAILABLE -> "Not saved"
+                        else -> "OFF"
+                    }
+                }
+                Log.d(TAG, "Profile $profileId tile state=$state, lastApplied=$lastAppliedProfileId")
+                updateTile()
             }
         }
     }
@@ -152,6 +183,9 @@ abstract class BaseProfileTileService : TileService() {
         mainHandler.post {
             qsTile?.apply {
                 this.state = state
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    subtitle = if (state == Tile.STATE_ACTIVE) "ON" else "OFF"
+                }
                 updateTile()
             }
         }
@@ -184,41 +218,8 @@ abstract class BaseProfileTileService : TileService() {
         }.getOrNull() ?: "Profile $profileId"
     }
 
-    private fun registerProfileReceiver() {
-        if (isProfileReceiverRegistered) return
-        val filter = IntentFilter(Constants.ACTION_PROFILE_APPLIED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(profileAppliedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(profileAppliedReceiver, filter)
-        }
-        isProfileReceiverRegistered = true
-    }
-
-    private fun unregisterProfileReceiver() {
-        if (!isProfileReceiverRegistered) return
-        runCatching { unregisterReceiver(profileAppliedReceiver) }
-        isProfileReceiverRegistered = false
-    }
-
-    private fun registerListeningTile() {
-        listeningTiles[profileId] = WeakReference(this)
-    }
-
-    private fun unregisterListeningTile() {
-        listeningTiles.remove(profileId)
-    }
-
     private companion object {
         private const val TAG = "ProfileTileService"
-        private val listeningTiles = ConcurrentHashMap<Int, WeakReference<BaseProfileTileService>>()
-
-        fun refreshListeningTiles() {
-            listeningTiles.values.forEach { tileService ->
-                tileService.get()?.refreshTile()
-            }
-        }
     }
 }
 

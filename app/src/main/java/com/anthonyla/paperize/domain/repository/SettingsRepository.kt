@@ -72,6 +72,11 @@ interface SettingsRepository {
     suspend fun getLastAppliedProfileId(): Int?
 
     /**
+     * Observe the most recently applied automation profile id.
+     */
+    fun observeLastAppliedProfileId(): Flow<Int?>
+
+    /**
      * Store the most recently applied automation profile id.
      */
     suspend fun updateLastAppliedProfileId(profileId: Int?)
