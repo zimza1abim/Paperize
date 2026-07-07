@@ -33,6 +33,7 @@ abstract class BaseProfileTileService : TileService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var listeningJob: Job? = null
+    private var activeToast: Toast? = null
     @Volatile
     private var hasSavedProfile: Boolean = false
 
@@ -124,6 +125,8 @@ abstract class BaseProfileTileService : TileService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        activeToast?.cancel()
+        activeToast = null
         serviceScope.cancel()
     }
 
@@ -211,7 +214,16 @@ abstract class BaseProfileTileService : TileService() {
 
     private fun showToast(message: String) {
         mainHandler.post {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            activeToast?.cancel()
+            val toast = Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT)
+            activeToast = toast
+            Log.d(TAG, "Showing QS tile toast: $message")
+            toast.show()
+            mainHandler.postDelayed({
+                if (activeToast === toast) {
+                    activeToast = null
+                }
+            }, TOAST_CLEAR_DELAY_MS)
         }
     }
 
@@ -223,6 +235,7 @@ abstract class BaseProfileTileService : TileService() {
 
     private companion object {
         private const val TAG = "ProfileTileService"
+        private const val TOAST_CLEAR_DELAY_MS = 2_500L
     }
 }
 
