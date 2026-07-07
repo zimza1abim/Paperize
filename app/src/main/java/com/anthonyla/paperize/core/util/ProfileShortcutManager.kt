@@ -54,6 +54,7 @@ object ProfileShortcutManager {
         ).forEach { serviceClass ->
             runCatching {
                 TileService.requestListeningState(appContext, ComponentName(appContext, serviceClass))
+                Log.d(TAG, "Requested QS tile refresh for ${serviceClass.simpleName}")
             }.onFailure { Log.w(TAG, "Unable to request profile tile refresh", it) }
         }
     }

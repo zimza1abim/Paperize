@@ -11,6 +11,7 @@ import android.service.quicksettings.TileService
 import android.util.Log
 import android.widget.Toast
 import com.anthonyla.paperize.R
+import com.anthonyla.paperize.core.util.ProfileShortcutManager
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.usecase.ApplyWallpaperProfileUseCase
 import com.anthonyla.paperize.domain.usecase.ProfileApplyResult
@@ -77,6 +78,7 @@ abstract class BaseProfileTileService : TileService() {
 
             if (lastAppliedProfileId == profileId) {
                 settingsRepository.updateLastAppliedProfileId(null)
+                ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                 Log.d(TAG, "Profile $profileId toggled off from QS tile")
                 showToast("$profileName off")
                 return@launch
@@ -88,6 +90,7 @@ abstract class BaseProfileTileService : TileService() {
 
             when (result) {
                 ProfileApplyResult.Applied -> {
+                    ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
                     Log.d(TAG, "Profile $profileId applied from QS tile")
                     showToast("$profileName applied")
                 }
