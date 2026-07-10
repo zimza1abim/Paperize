@@ -66,6 +66,7 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
     companion object {
         private const val TAG = "PaperizeLiveWallpaper"
         private const val SCREEN_ON_CHANGE_DEBOUNCE_MS = 800L
+        private const val VIDEO_EXTRA_HOLD_COUNT = 1
     }
 
     private val lifecycleRegistry: LifecycleRegistry = LifecycleRegistry(this)
@@ -112,6 +113,8 @@ class PaperizeLiveWallpaperService : GLWallpaperService(), LifecycleOwner {
         private var currentAlbumId: String? = null
         private var hasShownParallaxWarning = false
         private var reapplyCurrentWallpaperOnce = false
+        private var heldVideoWallpaperId: String? = null
+        private var remainingVideoHoldCount = 0
         private var settingsObserverStarted = false
 
         private val gestureDetector = GestureDetector(
@@ -195,6 +198,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
 
                     if (albumId == null) {
                         Log.w(TAG, "No live album ID set")
+                        clearVideoHold()
                         return@withContext EmptyImageLoader
                     }
 
@@ -207,6 +211,19 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                             return@withContext createImageLoader(current, settings.liveScalingType)
                         }
                         Log.d(TAG, "No current live wallpaper to reapply; falling back to next queue item")
+                    }
+
+                    val heldVideoWallpaper = getHeldVideoWallpaper(albumId)
+                    if (heldVideoWallpaper != null) {
+                        remainingVideoHoldCount--
+                        Log.d(
+                            TAG,
+                            "Keeping video live wallpaper for one extra cycle: ${heldVideoWallpaper.logSummary()}, remainingHold=$remainingVideoHoldCount"
+                        )
+                        if (remainingVideoHoldCount <= 0) {
+                            clearVideoHold()
+                        }
+                        return@withContext createImageLoader(heldVideoWallpaper, settings.liveScalingType)
                     }
 
                     // Check if queue exists, build it if empty
@@ -276,6 +293,7 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
 
                     try {
                         wallpaperRepository.setCurrentWallpaper(albumId, ScreenType.LIVE, wallpaper.id)
+                        updateVideoHold(wallpaper)
                         Log.d(TAG, "Selected live wallpaper: ${wallpaper.logSummary()}")
                         createImageLoader(wallpaper, settings.liveScalingType)
                     } catch (e: Exception) {
@@ -370,6 +388,35 @@ renderer = PaperizeWallpaperRenderer(applicationContext, this)
                     }
                 }
             }
+        }
+
+        private suspend fun getHeldVideoWallpaper(albumId: String): Wallpaper? {
+            if (remainingVideoHoldCount <= 0) return null
+            val heldId = heldVideoWallpaperId ?: return null
+            val current = ensureRepositories().second.getCurrentWallpaper(albumId, ScreenType.LIVE)
+            if (current?.id != heldId || current.mediaType != WallpaperMediaType.VIDEO) {
+                clearVideoHold()
+                return null
+            }
+            if (!current.uri.toUri().isValid(contentResolver)) {
+                clearVideoHold()
+                return null
+            }
+            return current
+        }
+
+        private fun updateVideoHold(wallpaper: Wallpaper) {
+            if (wallpaper.mediaType == WallpaperMediaType.VIDEO) {
+                heldVideoWallpaperId = wallpaper.id
+                remainingVideoHoldCount = VIDEO_EXTRA_HOLD_COUNT
+            } else {
+                clearVideoHold()
+            }
+        }
+
+        private fun clearVideoHold() {
+            heldVideoWallpaperId = null
+            remainingVideoHoldCount = 0
         }
 
         private fun Wallpaper.logSummary(): String {

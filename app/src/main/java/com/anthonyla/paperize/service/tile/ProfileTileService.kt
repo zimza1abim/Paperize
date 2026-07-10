@@ -1,7 +1,5 @@
 package com.anthonyla.paperize.service.tile
 
-import android.app.PendingIntent
-import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Handler
 import android.os.Looper
@@ -97,10 +95,8 @@ abstract class BaseProfileTileService : TileService() {
                 }
                 ProfileApplyResult.NeedsLiveWallpaperSelection -> {
                     refreshTileStateOnly(lastAppliedProfileId)
-                    showToast("Select Paperize live wallpaper")
-                    runCatching {
-                        startActivityAndCollapseCompat(applyProfileUseCase.liveWallpaperSelectionIntent())
-                    }.onFailure { Log.e(TAG, "Failed to open live wallpaper picker", it) }
+                    ProfileShortcutManager.requestTileRefresh(this@BaseProfileTileService)
+                    Log.d(TAG, "Profile $profileId needs live wallpaper selection; picker suppressed for QS tile")
                 }
                 ProfileApplyResult.NotFound -> {
                     refreshTileStateOnly(lastAppliedProfileId)
@@ -194,21 +190,6 @@ abstract class BaseProfileTileService : TileService() {
                 }
                 updateTile()
             }
-        }
-    }
-
-    private fun startActivityAndCollapseCompat(intent: Intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val pendingIntent = PendingIntent.getActivity(
-                this,
-                profileId,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            startActivityAndCollapse(pendingIntent)
-        } else {
-            @Suppress("DEPRECATION")
-            startActivityAndCollapse(intent)
         }
     }
 

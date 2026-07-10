@@ -123,8 +123,7 @@ open class ApplyProfileActivity : ComponentActivity() {
                 ProfileShortcutManager.requestTileRefresh(this)
             }
             ProfileApplyResult.NeedsLiveWallpaperSelection -> {
-                Toast.makeText(this, "Select Paperize live wallpaper", Toast.LENGTH_SHORT).show()
-                startActivity(applyProfileUseCase.liveWallpaperSelectionIntent())
+                ProfileShortcutManager.requestTileRefresh(this)
             }
             ProfileApplyResult.NotFound -> Toast.makeText(this, "$profileName is not saved", Toast.LENGTH_SHORT).show()
             ProfileApplyResult.InvalidProfile -> Toast.makeText(this, "$profileName is incomplete", Toast.LENGTH_SHORT).show()
